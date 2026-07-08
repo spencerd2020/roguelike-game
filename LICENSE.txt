@@ -1,0 +1,8 @@
+Vessels of the Overlords
+Copyright (c) 2026 Spencer Davis. All rights reserved.
+
+This game, its code, and its assets are provided for playing only.
+No permission is granted to copy, modify, reuse, or redistribute any
+part of this software or its assets. Third-party asset packs included
+in the game remain the property of their respective creators and are
+licensed for inclusion in this project only.
