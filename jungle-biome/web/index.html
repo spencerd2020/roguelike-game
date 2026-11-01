@@ -1,0 +1,1600 @@
+<meta charset="utf-8">
+<title>Mistfang Karst</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Spectral+SC:wght@500&family=Karla:wght@400;500&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  /* Layout: one full-bleed 3D view of the biome; a field-notes panel floats top-left. Single look by choice: the panel is a
+     slab of wet slate over a green scene, its accent the honey of cut bamboo. */
+  :root {
+    --bg: #0f1913;
+    --panel: rgba(14, 24, 18, .86);
+    --ink: #e7ecd9;
+    --muted: #a6b398;
+    --accent: #d9b65c;
+    --ember: #e0703a;
+    --line: rgba(231, 236, 217, .16);
+    --display: "Spectral SC", Georgia, serif;
+    --body: "Karla", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); overflow: hidden; }
+  #view { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+  .panel {
+    position: fixed; top: calc(12px + env(safe-area-inset-top, 0px)); left: max(16px, env(safe-area-inset-left, 0px));
+    max-width: min(318px, calc(100% - 32px)); max-height: calc(100% - 24px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 10px 12px; display: grid; gap: 10px; backdrop-filter: blur(6px);
+  }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  h1 { margin: 0; font-family: var(--display); font-weight: 500; font-size: 1.22rem; letter-spacing: .05em; line-height: 1.1; }
+  #pbody { display: grid; gap: 10px; }
+  .panel.closed #pbody { display: none; }
+  .sub { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+  .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .sw { display: grid; gap: 3px; justify-items: center; font-size: .6rem; color: var(--muted); text-align: center; line-height: 1.1; }
+  .sw i { display: block; width: 100%; aspect-ratio: 1; border-radius: 3px; border: 1px solid var(--line); }
+  .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-family: var(--mono); font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--ink); font-weight: 400; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: 500 .78rem var(--body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+  button:hover { border-color: var(--muted); }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .label { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .seedrow { display: flex; gap: 6px; margin: 0; }
+  .seedrow input { flex: 1; min-width: 0; font: 400 .8rem var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+  .seedrow input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { font-size: .72rem; color: var(--muted); margin: 0; line-height: 1.4; }
+  #status { font-family: var(--mono); font-size: .72rem; color: var(--ember); margin: 0; }
+  #caption { position: fixed; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); max-width: min(580px, calc(100% - 32px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; font-size: .8rem; line-height: 1.45; color: var(--ink); }
+  #caption[hidden] { display: none; }
+  #hud { position: fixed; inset: 0; pointer-events: none; }
+  #hud[hidden] { display: none; }
+  #hud .dot { position: absolute; left: 50%; top: 50%; width: 6px; height: 6px; margin: -3px 0 0 -3px; border-radius: 50%; background: var(--ink); box-shadow: 0 0 0 1px rgba(0,0,0,.5); }
+  #hud-hint { position: absolute; left: 50%; top: calc(50% + 18px); transform: translateX(-50%); font: 400 .74rem var(--mono); color: var(--ink); text-shadow: 0 1px 2px #000; white-space: nowrap; }
+  #hud-keys { position: absolute; right: 16px; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); font: 400 .7rem var(--mono); color: var(--muted); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; line-height: 1.5; }
+  @media (max-width: 700px), (max-height: 560px) { .sub, .hint { display: none; } }
+</style>
+
+<canvas id="view" aria-label="A character walks a loop through an original dense jungle valley: limestone karst towers in mist, rainforest giants on plank buttresses, banyans, bamboo, banana and elephant-ear leaves, a river with a bamboo water wheel, flooded rice terraces, and a seeded village of hollow stilt houses"></canvas>
+<div class="panel">
+  <div class="head"><h1>Mistfang Karst</h1><button id="b-menu" aria-expanded="true" aria-controls="pbody">Hide</button></div>
+  <div id="pbody">
+    <p class="sub">An original monsoon jungle. Limestone towers stand out of the mist, rainforest giants hold the canopy up on plank buttresses, banyans drop roots into pillars, and bamboo, banana and elephant-ear leaves fill everything below. A jade river turns a bamboo water wheel that feeds flooded terraces. The village is seeded, from a hamlet to a small town. It has stilt houses up out of the floods, each one hollow, furnished and full of things you can pick up. There is a jetty where the dugouts land the fish, and a timber yard where the village saws its ironwood.</p>
+    <p class="label">The biome's palette</p>
+    <div class="swatches" aria-label="Biome palette">
+      <span class="sw"><i style="background:#2a4b22"></i>canopy</span>
+      <span class="sw"><i style="background:#82a334"></i>banana</span>
+      <span class="sw"><i style="background:#979791"></i>karst</span>
+      <span class="sw"><i style="background:#b89e5a"></i>weave</span>
+      <span class="sw"><i style="background:#6d5f43"></i>thatch</span>
+      <span class="sw"><i style="background:#884629"></i>laterite</span>
+      <span class="sw"><i style="background:#a62a1a"></i>cinnabar</span>
+    </div>
+    <div class="stats">
+      <span>triangles</span><b id="s-tris">…</b>
+      <span>draw calls</span><b id="s-calls">…</b>
+      <span>frame rate</span><b id="s-fps">…</b>
+      <span>terrain</span><b>240 m, 0.5 m grid</b>
+    </div>
+    <p class="label">Village seed</p>
+    <form id="seed-form" class="seedrow">
+      <input id="seed" value="heron-ford" aria-label="Village seed" spellcheck="false" autocomplete="off">
+      <button type="submit">Build</button>
+      <button type="button" id="b-roll">Roll</button>
+    </form>
+    <div class="stats">
+      <span>buildings</span><b id="s-bld">…</b>
+      <span>inside</span><b id="s-props">…</b>
+      <span>generated in</span><b id="s-gen">…</b>
+    </div>
+    <p class="label">Look round</p>
+    <div class="row">
+      <button id="b-village">The village</button>
+      <button id="b-inside">Step inside</button>
+      <button id="b-cut" aria-pressed="false">Lift the roofs</button>
+      <button id="b-walk" aria-pressed="false">Walk in yourself</button>
+      <button id="b-river">The river</button>
+      <button id="b-terr">The terraces</button>
+      <button id="b-karst">The karst</button>
+    </div>
+    <p class="label">Weather</p>
+    <div class="row">
+      <button id="t-mist" aria-pressed="true">Morning mist</button>
+      <button id="t-noon" aria-pressed="false">Noon</button>
+      <button id="t-rain" aria-pressed="false">Monsoon dusk</button>
+    </div>
+    <div class="row">
+      <button id="b-follow" aria-pressed="true">Follow the walker</button>
+      <button id="b-pause" aria-pressed="false">Pause</button>
+      <button id="b-wire" aria-pressed="false">Wireframe</button>
+    </div>
+    <p class="hint">Drag to orbit, scroll to zoom. Step inside again to visit the next house. In Walk in yourself: WASD to move, Shift to run, Space to jump, E to pick up or drop, F to throw, click a prop to knock it, Esc to stop.</p>
+    <p id="status">Loading the Blender kit…</p>
+  </div>
+</div>
+<p id="caption" hidden></p>
+<div id="hud" hidden><span class="dot"></span><span id="hud-hint"></span><div id="hud-keys">WASD walk · Shift run · Space jump · E lift · F throw · Esc stop</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/utils/BufferGeometryUtils.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
+<script>
+(function () {
+'use strict';
+const status = document.getElementById('status');
+const LITE = /[?&]lite/.test(location.search);   // a lighter page for slow machines: less undergrowth, fewer trees, smaller shadows
+const caption = document.getElementById('caption');
+
+// ---------- noise ----------
+function hash2(i, j, s) {
+  let h = Math.imul(i | 0, 374761393) + Math.imul(j | 0, 668265263) + Math.imul(s | 0, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+const fade = t => t * t * (3 - 2 * t);
+const mod = (a, n) => ((a % n) + n) % n;
+function vnoise(x, y, s, P) {
+  const xi = Math.floor(x), yi = Math.floor(y), fx = fade(x - xi), fy = fade(y - yi);
+  const w = P ? (a => mod(a, P)) : (a => a);
+  const a = hash2(w(xi), w(yi), s), b = hash2(w(xi + 1), w(yi), s), c = hash2(w(xi), w(yi + 1), s), d = hash2(w(xi + 1), w(yi + 1), s);
+  return (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy) * 2 - 1;
+}
+function fbm(x, y, oct, s, P) {
+  let v = 0, amp = 0.5, f = 1, tot = 0;
+  for (let o = 0; o < oct; o++) { v += amp * vnoise(x * f, y * f, s + o * 17, P ? P * f : 0); tot += amp; amp *= 0.5; f *= 2; }
+  return v / tot;
+}
+function worley(u, v, N, s) {
+  const x = u * N, y = v * N, xi = Math.floor(x), yi = Math.floor(y);
+  let f1 = 9, f2 = 9, id = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const cx = mod(xi + i, N), cy = mod(yi + j, N);
+    const px = xi + i + hash2(cx, cy, s), py = yi + j + hash2(cx, cy, s + 7);
+    const d = Math.hypot(px - x, py - y);
+    if (d < f1) { f2 = f1; f1 = d; id = hash2(cx, cy, s + 3); } else if (d < f2) f2 = d;
+  }
+  return [f1, f2, id];
+}
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+
+// ---------- painted ground sheets: palette ramps only, relief lit from above, ordered dither, painted at 128 and doubled ----------
+const RAMP = {
+  litter: ['#1c170f', '#2a2216', '#3a2f1d', '#4d3d25', '#62502e', '#786238'],
+  leafy:  ['#3a2410', '#4f3015', '#64401c', '#7a5024', '#5c2a18', '#6a3a1e'],
+  green:  ['#17210f', '#1f2d14', '#293b19', '#344a1e', '#405a24', '#4d6a2b'],
+  path:   ['#3a1e12', '#552a19', '#6f3820', '#884629', '#9e5633', '#b06a40'],
+  mud:    ['#1f1914', '#2d241b', '#3c3124', '#4d3f2f', '#5f4f3a'],
+  rock:   ['#3a3c3a', '#545653', '#6e706b', '#888983', '#a3a39c', '#bdbcb3'],
+  moss:   ['#18240f', '#223316', '#2e431c', '#3b5422', '#4b6629'],
+};
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+for (const k in RAMP) RAMP[k] = RAMP[k].map(hex);
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(b => b / 16 - 0.5);
+function paint(fn, lightW = 0.45) {
+  const N = 128, H = new Float32Array(N * N), V = new Float32Array(N * N), R = new Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const o = fn(x / N, y / N); H[y * N + x] = o.h; V[y * N + x] = o.v; R[y * N + x] = o.r; }
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x;
+    const dx = H[y * N + (x + 1) % N] - H[y * N + (x + N - 1) % N];
+    const dy = H[((y + 1) % N) * N + x] - H[((y + N - 1) % N) * N + x];
+    const light = Math.min(1, Math.max(0, 0.5 - (dx * 0.7 + dy * 0.7) * 3.2));
+    const ramp = R[i];
+    const t = Math.min(1, Math.max(0, V[i] * (1 - lightW) + light * lightW));
+    const k = Math.round(Math.min(ramp.length - 1, Math.max(0, t * (ramp.length - 1) + BAYER[(y & 3) * 4 + (x & 3)] * 0.6)));
+    img.data.set([...ramp[k], 255], i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  const big = document.createElement('canvas'); big.width = big.height = 256;
+  const b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(c, 0, 0, 256, 256);
+  return big;
+}
+const SHEETS = {
+  // the forest floor: a dark mat of fallen leaves, each leaf a lens-shaped worley cell, some fresh and red-brown
+  litter: () => paint((u, v) => {
+    const n = fbm(u * 4, v * 4, 4, 11, 4);
+    const [f1, f2, id] = worley(u, v, 18, 5);
+    const leaf = smooth(0.09, 0.0, f2 - f1);
+    const fresh = id > 0.9;
+    const twig = smooth(0.02, 0.0, Math.abs(fbm(u * 6, v * 6, 2, 9, 6)) - 0.012);
+    if (twig > 0.5 && id < 0.4) return { h: 0.7, v: 0.3, r: RAMP.mud };
+    return fresh ? { h: 0.4 + (1 - leaf) * 0.3, v: 0.45 + id * 0.3 - leaf * 0.4, r: RAMP.leafy } : { h: (1 - leaf) * 0.4 + n * 0.3, v: 0.45 + n * 0.25 - leaf * 0.35 + id * 0.15, r: RAMP.litter };
+  }),
+  // moss and creeping fern on wet shaded ground
+  moss: () => paint((u, v) => {
+    const n = fbm(u * 6, v * 6, 4, 21, 6), g = fbm(u * 28, v * 28, 2, 23, 28);
+    const [f1, , id] = worley(u, v, 10, 25);
+    const clump = smooth(0.45, 0.1, f1);
+    return { h: clump * 0.5 + g * 0.2, v: 0.4 + n * 0.25 + g * 0.15 + clump * 0.2, r: id > 0.8 ? RAMP.litter : RAMP.green };
+  }),
+  // red laterite path: wet, rutted, puddled in its hollows
+  path: () => paint((u, v) => {
+    const n = fbm(u * 5, v * 5, 4, 41, 5), g = fbm(u * 30, v * 30, 2, 43, 30);
+    const rut = 0.5 + 0.5 * Math.sin(2 * Math.PI * (u * 5 + n * 0.5));
+    const puddle = smooth(0.35, 0.5, fbm(u * 3, v * 3, 3, 45, 3));
+    if (puddle > 0.5) return { h: 0.2, v: 0.15 + g * 0.1, r: RAMP.mud };
+    return { h: n * 0.3 + rut * 0.18 + g * 0.1, v: 0.5 + n * 0.25 + g * 0.12, r: RAMP.path };
+  }),
+  // river bank and paddy bund mud, with grass stems
+  mud: () => paint((u, v) => {
+    const n = fbm(u * 5, v * 5, 4, 31, 5), g = fbm(u * 26, v * 26, 2, 33, 26);
+    const [f1, , id] = worley(u, v, 16, 35);
+    if (id > 0.75 && f1 < 0.18) return { h: 0.7, v: 0.3 + id * 0.4, r: RAMP.moss };
+    return { h: n * 0.4 + g * 0.15, v: 0.45 + n * 0.25 + g * 0.1, r: RAMP.mud };
+  }),
+  // limestone where the slopes are too steep to hold soil
+  rock: () => paint((u, v) => {
+    const n = fbm(u * 5, v * 5, 5, 51, 5), sp = fbm(u * 40, v * 40, 2, 53, 40);
+    const [f1, f2] = worley(u, v, 5, 55);
+    const crack = smooth(0.06, 0.015, f2 - f1);
+    const moss = smooth(0.2, 0.45, fbm(u * 4, v * 4, 3, 57, 4));
+    return { h: n * 0.5 - crack * 0.6, v: 0.5 + n * 0.25 + sp * 0.12 - crack * 0.45, r: moss > 0.5 ? RAMP.moss : RAMP.rock };
+  }),
+};
+function tex(canvas) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = 8;
+  return t;
+}
+const T = {};
+for (const k in SHEETS) T[k] = tex(SHEETS[k]());
+
+// ---------- renderer, scene, sky ----------
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(LITE ? 1 : Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0xb8c4b0, 0.012);
+const camera = new THREE.PerspectiveCamera(50, 1, 0.08, 1400);
+camera.position.set(8, 4, 14);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.minDistance = 1.5;
+controls.maxDistance = 170;
+
+const skyU = { uZen: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color() }, uHaze: { value: 0.5 } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(900, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
+  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+  fragmentShader: `uniform vec3 uZen, uHor, uSunCol, uSun; uniform float uHaze; varying vec3 vD;
+    void main(){ float h = max(vD.y, 0.); vec3 c = mix(uHor, uZen, pow(smoothstep(0., .6, h), .55 + uHaze));
+      float s = max(dot(normalize(vD), uSun), 0.); c += uSunCol * (pow(s, 600.) * 2.5 * (1. - uHaze * .7) + pow(s, 6.) * .3);
+      c = mix(c, uHor, smoothstep(.0, -.15, vD.y)); gl_FragColor = vec4(c, 1.); }`,
+}));
+sky.renderOrder = -1;
+scene.add(sky);
+const hemi = new THREE.HemisphereLight(0xd0e0d4, 0x3a3a22, 0.6);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xfff0d0, 1.4);
+sun.castShadow = true;
+sun.shadow.mapSize.set(LITE ? 1024 : 2048, LITE ? 1024 : 2048);
+sun.shadow.bias = -0.0006;
+sun.shadow.normalBias = 0.05;
+Object.assign(sun.shadow.camera, { left: -42, right: 42, top: 42, bottom: -42, near: 1, far: 220 });
+scene.add(sun, sun.target);
+const timeU = { value: 0 };
+
+// ---------- geography ----------
+// A valley running west to east: a jade river along its floor, the village on a levelled shelf on the north bank, flooded
+// terraces stepping up the north-east slope, karst towers standing round the rim and one across the river.
+const SIZE = 240, SEG = LITE ? 320 : 480, STEP = SIZE / SEG, NV = SEG + 1;
+const VILLAGE = { x: 0, z: 2, r: 28 };
+const TERR = { x: 54, z: -34, r: 28 };
+const RIVER = new THREE.CatmullRomCurve3([[-130, 54], [-95, 44], [-62, 50], [-30, 42], [0, 40], [28, 46], [58, 60], [90, 54], [130, 62]].map(p => new THREE.Vector3(p[0], 0, p[1])), false, 'catmullrom', 0.5);
+const RIVER_PTS = RIVER.getSpacedPoints(500);
+const riverLevel = t => 1.0 - 2.6 * t;
+const RIVER_W = 5.2;
+const ROUTE = new THREE.CatmullRomCurve3([[-6, 0, 8], [10, 0, 20], [24, 0, 30], [40, 0, 36], [54, 0, 24], [58, 0, 2], [50, 0, -22], [34, 0, -46], [10, 0, -44], [-14, 0, -34], [-38, 0, -24],
+  [-52, 0, -4], [-48, 0, 20], [-32, 0, 30], [-18, 0, 20]].map(p => new THREE.Vector3(...p)), true, 'catmullrom', 0.5);
+const ROUTE_PTS = ROUTE.getSpacedPoints(300);
+const KARSTS = [[-84, -82, 1.35, 'karst_karst-1'], [-30, -102, 1.6, 'karst_karst-2'], [34, -106, 1.25, 'karst_karst-1'], [96, -82, 1.5, 'karst_karst-2'],
+  [110, -12, 1.15, 'karst_karst-1'], [-110, -18, 1.25, 'karst_karst-2'], [-74, 98, 1.4, 'karst_karst-1'], [20, 100, 1.65, 'karst_karst-2'], [80, 102, 1.2, 'karst_karst-1'],
+  [-26, 82, 0.95, 'karst_karst-2'], [62, 84, 0.8, 'karst_karst-1']];
+
+// distance fields on a 2 m grid, so the 230k terrain samples do not each walk 500 curve points
+function field(pts) {
+  const G = 2, N = SIZE / G + 1, D = new Float32Array(N * N), Tt = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = -SIZE / 2 + i * G, z = -SIZE / 2 + j * G;
+    let m = 1e9, mk = 0;
+    for (let k = 0; k < pts.length; k++) { const d = (pts[k].x - x) ** 2 + (pts[k].z - z) ** 2; if (d < m) { m = d; mk = k; } }
+    D[j * N + i] = Math.sqrt(m); Tt[j * N + i] = mk / (pts.length - 1);
+  }
+  const at = (A, x, z) => {
+    const gx = Math.max(0, Math.min(N - 1.001, (x + SIZE / 2) / G)), gz = Math.max(0, Math.min(N - 1.001, (z + SIZE / 2) / G));
+    const i = Math.floor(gx), j = Math.floor(gz), fx = gx - i, fz = gz - j;
+    return (A[j * N + i] * (1 - fx) + A[j * N + i + 1] * fx) * (1 - fz) + (A[(j + 1) * N + i] * (1 - fx) + A[(j + 1) * N + i + 1] * fx) * fz;
+  };
+  return { d: (x, z) => at(D, x, z), t: (x, z) => at(Tt, x, z) };
+}
+const RF = field(RIVER_PTS), RT = field(ROUTE_PTS);
+const distRiver = RF.d, distRoute = RT.d;
+
+const TSTEP = 0.95;
+function terraceAt(x, z) { return smooth(TERR.r * 1.15, TERR.r * 0.7, Math.hypot((x - TERR.x) / 1.2, z - TERR.z)); }
+function baseHeight(x, z) {
+  const r = Math.hypot(x, z * 1.15);
+  let h = 2.6 + fbm(x * 0.011, z * 0.011, 5, 3) * 7 + fbm(x * 0.045, z * 0.045, 3, 9) * 1.1;
+  h += smooth(70, 118, r) * (16 + 10 * fbm(x * 0.02 + 5, z * 0.02, 3, 7));                  // the valley's rim
+  h += smooth(-8, -80, z) * 13 * (0.7 + 0.3 * fbm(x * 0.03, z * 0.03, 2, 8));               // the north side climbs
+  h += smooth(70, 118, z) * 6;
+  // karst feet: the ground swells a little round each tower
+  for (const [kx, kz, ks] of KARSTS) h += 3 * ks * smooth(16 * ks, 6 * ks, Math.hypot(x - kx, z - kz));
+  // terraces: the slope cut into level steps, a steep riser between each
+  const tm = terraceAt(x, z);
+  if (tm > 0) {
+    const lv = h / TSTEP, fl = Math.floor(lv), fr = lv - fl;
+    const step = (fl + smooth(0.82, 0.98, fr)) * TSTEP;
+    h = h + (step - h) * tm;
+  }
+  // the village shelf
+  const dv = Math.hypot(x - VILLAGE.x, z - VILLAGE.z);
+  const lev = riverLevel(0.5) + 2.3 + fbm(x * 0.05, z * 0.05, 3, 9) * 0.15;
+  h += (lev - h) * smooth(VILLAGE.r + 16, VILLAGE.r - 4, dv);
+  // the river: a flood plain of bank, then the channel
+  const d = distRiver(x, z), lvl = riverLevel(RF.t(x, z));
+  h += (lvl + 0.9 - h) * smooth(18, 7, d) * (1 - smooth(VILLAGE.r + 4, VILLAGE.r - 6, dv) * 0.4);
+  if (d < RIVER_W + 2.5) h = Math.min(h, lvl - 1.5 * (1 - smooth(RIVER_W * 0.4, RIVER_W + 2.5, d)) + 0.25 + fbm(x * 0.3, z * 0.3, 2, 13) * 0.15);
+  return h;
+}
+const HGRID = new Float32Array(NV * NV);
+for (let j = 0; j < NV; j++) for (let i = 0; i < NV; i++) HGRID[j * NV + i] = baseHeight(-SIZE / 2 + i * STEP, -SIZE / 2 + j * STEP);
+function groundAt(x, z) {
+  const gx = (x + SIZE / 2) / STEP, gz = (z + SIZE / 2) / STEP;
+  const i = Math.max(0, Math.min(SEG - 1, Math.floor(gx))), j = Math.max(0, Math.min(SEG - 1, Math.floor(gz)));
+  const fx = gx - i, fz = gz - j;
+  const a = HGRID[j * NV + i], b = HGRID[j * NV + i + 1], c = HGRID[(j + 1) * NV + i], d = HGRID[(j + 1) * NV + i + 1];
+  return fx + fz < 1 ? a + (b - a) * fx + (c - a) * fz : d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+}
+const footMin = (x, z, r) => { let m = groundAt(x, z); for (let k = 0; k < 8; k++) m = Math.min(m, groundAt(x + r * Math.cos(k * 0.785), z + r * Math.sin(k * 0.785))); return m; };
+const slopeAt = (x, z) => Math.hypot(groundAt(x + 0.6, z) - groundAt(x - 0.6, z), groundAt(x, z + 0.6) - groundAt(x, z - 0.6)) / 1.2;
+const paddyLevel = (x, z) => { if (terraceAt(x, z) < 0.9) return null; const h = groundAt(x, z), lv = h / TSTEP, fr = lv - Math.floor(lv); return fr < 0.6 ? Math.floor(lv) * TSTEP + 0.12 : null; };
+
+// ---------- terrain: four painted layers plus rock on the steep slopes, height-aware blend ----------
+const tgeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+tgeo.rotateX(-Math.PI / 2);
+const NVERT = tgeo.attributes.position.count;
+const splat = new Float32Array(NVERT * 4);
+const BASESPLAT = new Float32Array(NVERT * 4);
+{
+  const pos = tgeo.attributes.position;
+  for (let v = 0; v < NVERT; v++) {
+    const i = Math.round((pos.getX(v) + SIZE / 2) / STEP), j = Math.round((pos.getZ(v) + SIZE / 2) / STEP);
+    pos.setY(v, HGRID[j * NV + i]);
+  }
+  tgeo.computeVertexNormals();
+  const col = new Float32Array(NVERT * 3);
+  for (let v = 0; v < NVERT; v++) {
+    const x = pos.getX(v), z = pos.getZ(v), y = pos.getY(v);
+    const i = Math.round((x + SIZE / 2) / STEP), j = Math.round((z + SIZE / 2) / STEP);
+    const H = (a, b) => HGRID[Math.max(0, Math.min(SEG, b)) * NV + Math.max(0, Math.min(SEG, a))];
+    const lap = (H(i + 3, j) + H(i - 3, j) + H(i, j + 3) + H(i, j - 3)) / 4 - y;
+    const dr = distRiver(x, z), tm = terraceAt(x, z);
+    const litter = 1.0 + smooth(-0.2, 0.4, fbm(x * 0.03, z * 0.03, 3, 61)) * 0.6;
+    const moss = smooth(16, 6, dr) * 1.2 + smooth(0.1, 0.5, fbm(x * 0.04 + 7, z * 0.04, 3, 63)) * 0.9 + Math.max(0, lap) * 2;
+    const path = smooth(1.9, 0.6, distRoute(x, z) + fbm(x * 0.4, z * 0.4, 2, 65) * 0.4) * 1.8;
+    const mud = smooth(RIVER_W + 3.5, RIVER_W - 0.5, dr) * 2.2 + tm * 1.8;
+    BASESPLAT.set([litter, moss, path, mud], v * 4);
+    const ao = Math.min(1.05, Math.max(0.62, 1 - lap * 0.45));
+    col.set([ao, ao, ao], v * 3);
+  }
+  splat.set(BASESPLAT);
+  tgeo.setAttribute('splat', new THREE.BufferAttribute(splat, 4));
+  tgeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+const groundMat = new THREE.MeshLambertMaterial({ map: T.litter, vertexColors: true });
+groundMat.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, { tMoss: { value: T.moss }, tPath: { value: T.path }, tMud: { value: T.mud }, tRock: { value: T.rock }, uRep: { value: SIZE / 4 } });
+  sh.vertexShader = 'attribute vec4 splat; varying vec4 vSplat; varying float vSlope;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vSplat = splat; vSlope = 1.0 - normal.y;');
+  sh.fragmentShader = 'uniform sampler2D tMoss, tPath, tMud, tRock; uniform float uRep; varying vec4 vSplat; varying float vSlope;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+    vec2 tuv = vUv * uRep;
+    vec4 a = mapTexelToLinear(texture2D(map, tuv)) * mix(.9, 1.08, mapTexelToLinear(texture2D(map, tuv * .21 + .37)).r * 2.);
+    vec4 b = mapTexelToLinear(texture2D(tMoss, tuv * .8));
+    vec4 c = mapTexelToLinear(texture2D(tPath, tuv * 1.1));
+    vec4 d = mapTexelToLinear(texture2D(tMud, tuv * .9));
+    vec4 w = vSplat * vec4(.6 + a.r * 2., .6 + b.g, .6 + c.r, .6 + d.r);
+    w = pow(w, vec4(3.)); w /= max(dot(w, vec4(1.)), 1e-4);
+    vec4 g = a * w.x + b * w.y + c * w.z + d * w.w;
+    float rk = smoothstep(.32, .5, vSlope);
+    diffuseColor *= mix(g, mapTexelToLinear(texture2D(tRock, tuv * .5)), rk);`);
+};
+const terrain = new THREE.Mesh(tgeo, groundMat);
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// ---------- water: the river (a ribbon down the channel, flowing) and the flooded terraces ----------
+const waterU = { uTime: timeU };
+function waterMaterial(color, flow) {
+  const m = new THREE.MeshPhongMaterial({ color, specular: 0x8fa89a, shininess: 90, transparent: true, opacity: 0.92, depthWrite: true });
+  m.onBeforeCompile = sh => {
+    sh.uniforms.uTime = timeU;
+    sh.vertexShader = 'varying vec2 vW;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vW = uv;');
+    sh.fragmentShader = 'uniform float uTime; varying vec2 vW;\n' + sh.fragmentShader.replace('#include <color_fragment>', `#include <color_fragment>
+      float f = ${flow ? 'vW.x * 0.35 - uTime * 0.22' : 'vW.x * 0.08'};
+      float s1 = sin(f * 23.0 + sin(vW.y * 9.0 + uTime * .7) * 1.6) * sin(vW.y * 31.0 + f * 7.0);
+      float s2 = sin(f * 61.0 - vW.y * 17.0) * sin(vW.y * 53.0 + f * 11.0 + uTime);
+      float streak = smoothstep(.55, .95, s1 * .6 + s2 * .4);
+      ${flow ? 'float bank = smoothstep(.16, .0, vW.y) + smoothstep(.84, 1., vW.y);' : 'float bank = 0.;'}
+      diffuseColor.rgb = mix(diffuseColor.rgb, vec3(.62, .74, .66), streak * .16 + bank * .14);
+      diffuseColor.rgb *= 1.0 - (1.0 - abs(vW.y * 2. - 1.)) * ${flow ? '.25' : '0.0'};`);
+  };
+  return m;
+}
+let riverMesh = null;
+{
+  const n = RIVER_PTS.length, pos = [], uv = [], idx = [];
+  let along = 0;
+  for (let k = 0; k < n; k++) {
+    const p = RIVER_PTS[k], t = k / (n - 1), tg = RIVER.getTangentAt(t);
+    if (k) along += p.distanceTo(RIVER_PTS[k - 1]);
+    const nx = -tg.z, nz = tg.x, w = RIVER_W + 1.0, y = riverLevel(t);
+    pos.push(p.x + nx * w, y, p.z + nz * w, p.x - nx * w, y, p.z - nz * w);
+    uv.push(along / 10, 0, along / 10, 1);
+    if (k) { const b = (k - 1) * 2; idx.push(b, b + 2, b + 1, b + 1, b + 2, b + 3); }
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  g.setIndex(idx); g.computeVertexNormals();
+  riverMesh = new THREE.Mesh(g, waterMaterial(0x1f4a3c, true));
+  riverMesh.receiveShadow = true;
+  scene.add(riverMesh);
+}
+{
+  // paddies: one quad per terrain cell whose four corners sit on the same terrace floor
+  const pos = [], uv = [];
+  const C = 1.0;
+  for (let z = TERR.z - TERR.r * 1.2; z < TERR.z + TERR.r * 1.2; z += C) for (let x = TERR.x - TERR.r * 1.4; x < TERR.x + TERR.r * 1.4; x += C) {
+    const ls = [paddyLevel(x, z), paddyLevel(x + C, z), paddyLevel(x, z + C), paddyLevel(x + C, z + C)];
+    if (ls.some(l => l === null) || Math.max(...ls) - Math.min(...ls) > 0.01) continue;
+    const y = ls[0];
+    pos.push(x, y, z, x, y, z + C, x + C, y, z, x + C, y, z, x, y, z + C, x + C, y, z + C);
+    uv.push(x, z, x, z + C, x + C, z, x + C, z, x, z + C, x + C, z + C);
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  g.setAttribute('uv', new THREE.Float32BufferAttribute(uv.map(v => v * 0.1), 2));
+  g.computeVertexNormals();
+  const m = new THREE.Mesh(g, waterMaterial(0x4f6e5c, false));
+  m.material.opacity = 0.78;
+  m.receiveShadow = true;
+  scene.add(m);
+}
+
+// ---------- seeded scatter helpers ----------
+let seed = 1234567;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+const R = (a, b) => a + (b - a) * rnd();
+const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), vP = new THREE.Vector3(), vS = new THREE.Vector3();
+function compose(x, y, z, rx, ry, rz, sx, sy, sz) { e.set(rx, ry, rz); q.setFromEuler(e); vP.set(x, y, z); vS.set(sx, sy, sz); return m4.compose(vP, q, vS).clone(); }
+const ZERO = new THREE.Matrix4().makeScale(0, 0, 0);
+const karstClear = (x, z, r) => KARSTS.every(([kx, kz, ks]) => Math.hypot(x - kx, z - kz) > 9 * ks + r);
+const inVillage = (x, z, r) => Math.hypot(x - VILLAGE.x, z - VILLAGE.z) < VILLAGE.r + r;
+
+// ---------- undergrowth: broad-leaf clumps, ferns, and grass on the banks and bunds; chunked so the camera culls them ----------
+const UNDER = [];
+{
+  const leafGeo = (len, wid, lean, a, c0, c1, segs = 4) => {
+    const pos = [], col = [], idx = [];
+    for (let s = 0; s <= segs; s++) {
+      const t = s / segs, ww = wid * Math.sin(Math.PI * Math.min(1, 0.1 + t * 0.95)) ** 0.7, bend = lean * t;
+      const r = len * t, y = len * t * (1.1 - lean) - lean * len * t * t * 0.9;
+      const cx = Math.cos(a) * (r * 0.8 + bend * 0.2), cz = Math.sin(a) * (r * 0.8 + bend * 0.2);
+      const px = -Math.sin(a) * ww / 2, pz = Math.cos(a) * ww / 2;
+      pos.push(cx - px, y - ww * 0.1, cz - pz, cx, y + ww * 0.08, cz, cx + px, y - ww * 0.1, cz + pz);
+      const c = c0.map((b, k) => b + (c1[k] - b) * Math.pow(t, 0.8));
+      col.push(...c.map(v => v * 0.85), ...c, ...c.map(v => v * 0.85));
+      if (s) { const b = (s - 1) * 3; idx.push(b, b + 3, b + 1, b + 1, b + 3, b + 4, b + 1, b + 4, b + 2, b + 2, b + 4, b + 5); }
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    g.setIndex(idx);
+    return g.toNonIndexed();
+  };
+  const tuft = (n, len, wid, lean, c0, c1, segs) => {
+    const parts = [];
+    for (let i = 0; i < n; i++) {
+      const a = i / n * Math.PI * 2 + R(-0.3, 0.3);
+      parts.push(leafGeo(len * R(0.7, 1.2), wid * R(0.8, 1.2), lean * R(0.7, 1.3), a, c0, c1, segs));
+    }
+    const g = THREE.BufferGeometryUtils.mergeBufferGeometries(parts);
+    g.computeVertexNormals();
+    const nn = g.attributes.normal; for (let i = 0; i < nn.count; i++) nn.setXYZ(i, nn.getX(i) * 0.4, 1, nn.getZ(i) * 0.4);
+    return g;
+  };
+  seed = 4242;
+  const KINDS = [
+    { g: tuft(7, 1.0, 0.32, 0.55, [0.05, 0.1, 0.04], [0.2, 0.36, 0.1], 4), want: LITE ? 4000 : 13000, where: 'forest' },     // ginger and calathea clumps
+    { g: tuft(9, 0.9, 0.16, 0.75, [0.06, 0.12, 0.04], [0.28, 0.42, 0.12], 5), want: LITE ? 3000 : 10000, where: 'forest' },   // ferns
+    { g: tuft(12, 0.55, 0.035, 0.35, [0.12, 0.16, 0.06], [0.4, 0.5, 0.2], 3), want: LITE ? 2500 : 9000, where: 'open' },     // bank grass
+    { g: tuft(5, 1.6, 0.5, 0.45, [0.04, 0.09, 0.03], [0.17, 0.3, 0.09], 5), want: LITE ? 800 : 2600, where: 'forest' },       // big-leaf aroids
+  ];
+  const mat = new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
+  mat.onBeforeCompile = sh => {
+    sh.uniforms.uTime = timeU;
+    sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+      float ph = instanceMatrix[3].x * .21 + instanceMatrix[3].z * .17;
+      float hh = position.y * position.y;
+      transformed.x += sin(uTime * 1.1 + ph) * .04 * hh;
+      transformed.z += cos(uTime * .9 + ph) * .04 * hh;`);
+  };
+  const CH = 30, NC = SIZE / CH;
+  for (const K of KINDS) {
+    const chunks = []; for (let k = 0; k < NC * NC; k++) chunks.push([]);
+    let placed = 0;
+    for (let t = 0; t < K.want * 3 && placed < K.want; t++) {
+      const x = R(-SIZE / 2 + 2, SIZE / 2 - 2), z = R(-SIZE / 2 + 2, SIZE / 2 - 2);
+      const dr = distRiver(x, z), droute = distRoute(x, z);
+      if (dr < RIVER_W + 0.6 || droute < 1.2 || !karstClear(x, z, -2) || terraceAt(x, z) > 0.6) continue;
+      if (K.where === 'forest') {
+        const dens = smooth(-0.6, 0.2, fbm(x * 0.04, z * 0.04, 3, 71)) * (inVillage(x, z, 4) ? 0.15 : 1);
+        if (rnd() > dens || slopeAt(x, z) > 1.2) continue;
+      } else {
+        const want = smooth(RIVER_W + 8, RIVER_W + 1, dr) + smooth(3.5, 1.4, droute) * 0.8 + (terraceAt(x, z) > 0.4 ? 1 : 0);
+        if (rnd() > want) continue;
+      }
+      const s = R(0.7, 1.35);
+      const ci = Math.min(NC - 1, Math.floor((x + SIZE / 2) / CH)) + Math.min(NC - 1, Math.floor((z + SIZE / 2) / CH)) * NC;
+      chunks[ci].push({ m: compose(x, groundAt(x, z) - 0.05, z, R(-0.1, 0.1), R(0, 6.28), R(-0.1, 0.1), s, s * R(0.8, 1.2), s), c: R(0.75, 1.2), x, z });
+      placed++;
+    }
+    for (const list of chunks) {
+      if (!list.length) continue;
+      const mesh = new THREE.InstancedMesh(K.g, mat, list.length);
+      const c = new THREE.Color();
+      list.forEach((it, k) => { mesh.setMatrixAt(k, it.m); mesh.setColorAt(k, c.setRGB(it.c * R(0.9, 1.1), it.c, it.c * R(0.8, 1.0))); });
+      mesh.receiveShadow = true;
+      let cx = 0, cz = 0; list.forEach(it => { cx += it.x; cz += it.z; }); cx /= list.length; cz /= list.length;
+      mesh.geometry = K.g.clone();
+      mesh.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, groundAt(cx, cz), cz), CH * 0.8 + 3);
+      scene.add(mesh);
+      UNDER.push({ mesh, list });
+    }
+  }
+}
+function hideUnder(feet) {
+  for (const ch of UNDER) {
+    ch.list.forEach((it, k) => {
+      const hide = feet.some(f => (it.x - f.x) ** 2 + (it.z - f.z) ** 2 < f.r * f.r);
+      ch.mesh.setMatrixAt(k, hide ? ZERO : it.m);
+    });
+    ch.mesh.instanceMatrix.needsUpdate = true;
+  }
+}
+
+// ---------- mist: soft layers lying in the valley, drifting; light shafts through the canopy ----------
+const MIST = [];
+{
+  const c = document.createElement('canvas'); c.width = c.height = 256;
+  const g = c.getContext('2d'), img = g.createImageData(256, 256);
+  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) {
+    const n = fbm(x / 64, y / 64, 5, 301, 4) * 0.5 + 0.5;
+    const a = smooth(0.42, 0.78, n) * 255;
+    img.data.set([255, 255, 255, a], (y * 256 + x) * 4);
+  }
+  g.putImageData(img, 0, 0);
+  const mt = new THREE.CanvasTexture(c); mt.wrapS = mt.wrapT = THREE.RepeatWrapping;
+  for (let i = 0; i < 4; i++) {
+    const m = new THREE.MeshBasicMaterial({ map: mt.clone(), transparent: true, depthWrite: false, opacity: 0.35, color: 0xe6ece2, fog: true });
+    m.map.needsUpdate = true; m.map.repeat.set(3 + i, 3 + i);
+    const p = new THREE.Mesh(new THREE.PlaneGeometry(SIZE * 1.4, SIZE * 1.4), m);
+    p.rotation.x = -Math.PI / 2; p.position.y = 3 + i * 3.2; p.renderOrder = 2;
+    scene.add(p); MIST.push(p);
+  }
+}
+const SHAFTS = [];
+{
+  const c = document.createElement('canvas'); c.width = 32; c.height = 128;
+  const g = c.getContext('2d'), gr = g.createLinearGradient(0, 0, 0, 128);
+  gr.addColorStop(0, 'rgba(255,250,225,0)'); gr.addColorStop(0.25, 'rgba(255,250,225,0.5)'); gr.addColorStop(1, 'rgba(255,250,225,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 32, 128);
+  const g2 = g.createLinearGradient(0, 0, 32, 0); g2.addColorStop(0, 'rgba(0,0,0,1)'); g2.addColorStop(0.5, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,1)');
+  g.globalCompositeOperation = 'destination-out'; g.fillStyle = g2; g.fillRect(0, 0, 32, 128);
+  const st = new THREE.CanvasTexture(c);
+  const mat = new THREE.MeshBasicMaterial({ map: st, transparent: true, depthWrite: false, blending: THREE.AdditiveBlending, opacity: 0.22, side: THREE.DoubleSide, fog: false });
+  seed = 919;
+  for (let i = 0; i < 26; i++) {
+    const x = R(-90, 90), z = R(-80, 80);
+    if (distRiver(x, z) < 8 || inVillage(x, z, 0)) continue;
+    const h = R(18, 30), w = R(1.5, 4);
+    const geo = new THREE.PlaneGeometry(w, h);
+    const grp = new THREE.Group();
+    for (let k = 0; k < 2; k++) { const p = new THREE.Mesh(geo, mat); p.rotation.y = k * Math.PI / 2; grp.add(p); }
+    grp.position.set(x, groundAt(x, z) + h * 0.42, z);
+    grp.rotation.z = 0.35; grp.rotation.y = 0.6;
+    scene.add(grp); SHAFTS.push(grp);
+  }
+}
+// rain for the monsoon: streaks round the camera
+const RAIN = (() => {
+  const n = LITE ? 2500 : 7000, pos = new Float32Array(n * 6);
+  for (let i = 0; i < n; i++) { const x = (Math.random() - 0.5) * 60, y = Math.random() * 30, z = (Math.random() - 0.5) * 60; pos.set([x, y, z, x + 0.05, y - 0.7, z + 0.02], i * 6); }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const l = new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xb8c8c8, transparent: true, opacity: 0.35, fog: true }));
+  l.frustumCulled = false; l.visible = false; scene.add(l);
+  return l;
+})();
+
+// ---------- the Blender kit ----------
+// Every model below was built, baked and painted in Blender by jungle_kit.py from its seed: one unique painted atlas per
+// model, faceted, lit from above in the paint. Houses come as nodes shell and roof, so the viewer can lift the roof off;
+// the water wheel's wheel is its own node and turns. Blender is Z up; the glb exporter makes that Y up: (x, y, z) -> (x, z, -y).
+const loader = new THREE.GLTFLoader();
+const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+const KIT_NAMES = ['stilthouse_sky-1', 'stilthouse_sky-2', 'stilthouse_sky-3', 'stilthouse_sky-4', 'longhouse_long-1', 'granary_store-1', 'granary_store-2', 'shrine_spirit-1',
+  'waterwheel_wheel-1', 'emergent_e-1', 'emergent_e-2', 'emergent_e-3', 'banyan_fig-1', 'bamboo_bam-1', 'bamboo_bam-2', 'banana_ban-1', 'banana_ban-2', 'taro_taro-1',
+  'treefern_fern-1', 'treefern_fern-2', 'karst_karst-1', 'karst_karst-2', 'boulders_stones-1', 'midtree_mid-1', 'midtree_mid-2', 'midtree_mid-3', 'palm_palm-1', 'palm_palm-2', 'jetty_dock-1', 'timberyard_yard-1'];
+const KIT = {};
+const toThree = p => new THREE.Vector3(p[0], p[2], -p[1]);
+const emberMat = new THREE.MeshBasicMaterial({ color: 0xff7a2a });
+const FOLIAGE = /emergent|banyan|bamboo|banana|taro|treefern|karst|midtree|palm/;
+function kitParts(gltf, name) {
+  const parts = [];
+  gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(n => {
+    if (!n.isMesh) return;
+    let node = n; while (node.parent && node.parent !== gltf.scene) node = node.parent;
+    const g = n.geometry.clone(); g.applyMatrix4(n.matrixWorld);
+    let mat;
+    if (/ember/.test(n.material.name)) mat = emberMat;
+    else {
+      const map = n.material.map;
+      map.magFilter = THREE.NearestFilter; map.anisotropy = 8;
+      // leaves and blades are single sheets: draw both sides
+      mat = new THREE.MeshLambertMaterial({ map, side: FOLIAGE.test(name) ? THREE.DoubleSide : THREE.FrontSide });
+      if (/emergent|banyan|bamboo|midtree|palm/.test(name)) {
+        mat.onBeforeCompile = sh => {
+          sh.uniforms.uTime = timeU;
+          sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+            float hs = max(position.y - 6.0, 0.0) * .012;
+            float ph = instanceMatrix[3].x * .07 + instanceMatrix[3].z * .05;
+            transformed.x += sin(uTime * .6 + ph) * hs; transformed.z += cos(uTime * .5 + ph) * hs;`);
+        };
+      }
+    }
+    parts.push({ node: node.name, geo: g, mat });
+  });
+  return parts;
+}
+const PLACED = [];
+// instances are split into 60 m cells, so the camera culls whole cells of trees it is not looking at
+function placeKit(name, mats, opts = {}) {
+  const k = KIT[name];
+  if (!k || !mats.length) return [];
+  const cells = {};
+  for (const m of mats) { const key = Math.floor(m.elements[12] / 60) + ',' + Math.floor(m.elements[14] / 60); (cells[key] = cells[key] || []).push(m); }
+  const out = [];
+  const rad = Math.max(...k.info.bounds[1].map(Math.abs), ...k.info.bounds[0].map(Math.abs));
+  for (const key in cells) {
+    const list = cells[key];
+    let cx = 0, cy = 0, cz = 0, smax = 1;
+    list.forEach(m => { cx += m.elements[12]; cy += m.elements[13]; cz += m.elements[14]; smax = Math.max(smax, new THREE.Vector3().setFromMatrixScale(m).x); });
+    cx /= list.length; cy /= list.length; cz /= list.length;
+    let spread = 0; list.forEach(m => { spread = Math.max(spread, Math.hypot(m.elements[12] - cx, m.elements[14] - cz)); });
+    for (const p of k.parts) {
+      if (opts.node && p.node !== opts.node) continue;
+      const mesh = new THREE.InstancedMesh(p.geo.clone(), p.mat, list.length);
+      list.forEach((m, i) => mesh.setMatrixAt(i, m));
+      mesh.geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(cx, cy, cz), spread + rad * smax + 2);
+      mesh.castShadow = opts.shadow !== false && p.mat !== emberMat;
+      mesh.receiveShadow = true;
+      mesh.userData.node = p.node;
+      scene.add(mesh);
+      out.push(mesh); PLACED.push(mesh);
+    }
+  }
+  return out;
+}
+
+// ---------- the land: karst towers, the canopy, banyans, bamboo, the understory, river stones ----------
+const LAND_FEET = [];
+function buildLand() {
+  seed = 777;
+  const karsts = {};
+  for (const [x, z, s, name] of KARSTS) {
+    (karsts[name] = karsts[name] || []).push(compose(x, footMin(x, z, 6 * s) - 2.5, z, 0, R(0, 6.28), 0, s, s * R(0.9, 1.15), s));
+    LAND_FEET.push({ x, z, r: 8.5 * s });
+  }
+  for (const k in karsts) placeKit(k, karsts[k]);
+  const clear = (x, z, r) => distRiver(x, z) > RIVER_W + r && distRoute(x, z) > r + 1.2 && !inVillage(x, z, r + 2) && terraceAt(x, z) < 0.2 && karstClear(x, z, r) &&
+    Math.abs(x) < SIZE / 2 - 3 && Math.abs(z) < SIZE / 2 - 3 && LAND_FEET.every(f => Math.hypot(x - f.x, z - f.z) > f.r + r);
+  const put = {}, add = (name, m) => (put[name] = put[name] || []).push(m);
+  // rainforest giants: well spaced, the canopy's top layer
+  const giants = ['emergent_e-1', 'emergent_e-2', 'emergent_e-3'];
+  for (let i = 0, n = 0; i < 900 && n < (LITE ? 22 : 38); i++) {
+    const x = R(-112, 112), z = R(-112, 112), s = R(0.9, 1.2);
+    if (!clear(x, z, 3)) continue;
+    add(giants[n % 3], compose(x, footMin(x, z, 1.5) - 0.3, z, 0, R(0, 6.28), 0, s, s * R(0.9, 1.1), s));
+    LAND_FEET.push({ x, z, r: 5 }); n++;
+  }
+  // a few young giants, then the middle canopy: rounded crowns packed shoulder to shoulder, so the forest reads as a wall
+  for (let i = 0, n = 0; i < 2000 && n < (LITE ? 20 : 45); i++) {
+    const x = R(-114, 114), z = R(-114, 114), s = R(0.5, 0.68);
+    if (!clear(x, z, 1.5)) continue;
+    add(giants[Math.floor(R(0, 3))], compose(x, footMin(x, z, 1) - 0.2, z, 0, R(0, 6.28), 0, s, s * R(0.85, 1.15), s));
+    LAND_FEET.push({ x, z, r: 2.2 }); n++;
+  }
+  const mids = ['midtree_mid-1', 'midtree_mid-2', 'midtree_mid-3'];
+  for (let i = 0, n = 0; i < 12000 && n < (LITE ? 220 : 520); i++) {
+    const x = R(-116, 116), z = R(-116, 116), s = R(0.75, 1.3);
+    if (!clear(x, z, 1.4) || fbm(x * 0.03, z * 0.03, 2, 81) < -0.5) continue;
+    add(mids[Math.floor(R(0, 3))], compose(x, footMin(x, z, 0.8) - 0.2, z, R(-0.04, 0.04), R(0, 6.28), R(-0.04, 0.04), s, s * R(0.85, 1.2), s));
+    LAND_FEET.push({ x, z, r: 2.4 * s }); n++;
+  }
+  // palms in clumps through the middle storey
+  for (let i = 0, n = 0; i < 6000 && n < (LITE ? 70 : 160); i++) {
+    const x = R(-114, 114), z = R(-114, 114), s = R(0.8, 1.2);
+    if (!clear(x, z, 1.2)) continue;
+    add(i % 2 ? 'palm_palm-1' : 'palm_palm-2', compose(x, groundAt(x, z) - 0.1, z, 0, R(0, 6.28), 0, s, s * R(0.85, 1.2), s));
+    LAND_FEET.push({ x, z, r: 1.5 }); n++;
+  }
+  // banyans: a few, each a hall of roots
+  for (let i = 0, n = 0; i < 400 && n < 4; i++) {
+    const x = R(-100, 100), z = R(-100, 100), s = R(0.9, 1.15);
+    if (!clear(x, z, 9)) continue;
+    add('banyan_fig-1', compose(x, footMin(x, z, 3) - 0.3, z, 0, R(0, 6.28), 0, s, s, s));
+    LAND_FEET.push({ x, z, r: 9 }); n++;
+  }
+  // bamboo: thick along the river and in groves on the slopes
+  for (let i = 0, n = 0; i < 3000 && n < (LITE ? 35 : 70); i++) {
+    const nearRiver = i % 3 === 0;
+    let x, z;
+    if (nearRiver) { const p = RIVER_PTS[Math.floor(R(0, RIVER_PTS.length))], a = R(0, 6.28), d = R(RIVER_W + 3, RIVER_W + 12); x = p.x + Math.cos(a) * d; z = p.z + Math.sin(a) * d; }
+    else { x = R(-110, 110); z = R(-110, 110); if (fbm(x * 0.025, z * 0.025, 2, 83) < 0.1) continue; }
+    const s = R(0.85, 1.2);
+    if (!clear(x, z, 1.6) && !(nearRiver && distRiver(x, z) > RIVER_W + 2 && !inVillage(x, z, 3) && karstClear(x, z, 2))) continue;
+    add(i % 2 ? 'bamboo_bam-1' : 'bamboo_bam-2', compose(x, groundAt(x, z) - 0.1, z, 0, R(0, 6.28), 0, s, s * R(0.85, 1.15), s));
+    LAND_FEET.push({ x, z, r: 2 }); n++;
+  }
+  // tree ferns on the slopes, bananas in the light gaps, elephant ears by the water
+  for (let i = 0, n = 0; i < 3000 && n < (LITE ? 50 : 110); i++) {
+    const x = R(-112, 112), z = R(-112, 112), s = R(0.8, 1.3);
+    if (!clear(x, z, 1)) continue;
+    add(i % 2 ? 'treefern_fern-1' : 'treefern_fern-2', compose(x, groundAt(x, z) - 0.1, z, 0, R(0, 6.28), 0, s, s, s)); n++;
+  }
+  for (let i = 0, n = 0; i < 3000 && n < (LITE ? 50 : 110); i++) {
+    const x = R(-112, 112), z = R(-112, 112), s = R(0.8, 1.2);
+    if (!clear(x, z, 1.2) || fbm(x * 0.05, z * 0.05, 2, 85) < 0) continue;
+    add(i % 2 ? 'banana_ban-1' : 'banana_ban-2', compose(x, groundAt(x, z) - 0.1, z, 0, R(0, 6.28), 0, s, s, s)); n++;
+  }
+  for (let i = 0, n = 0; i < 4000 && n < (LITE ? 80 : 200); i++) {
+    const p = RIVER_PTS[Math.floor(R(0, RIVER_PTS.length))], a = R(0, 6.28), d = i % 2 ? R(RIVER_W + 1, RIVER_W + 7) : R(0, 60);
+    const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d, s = R(0.8, 1.4);
+    if (distRiver(x, z) < RIVER_W + 0.8 || distRoute(x, z) < 1.4 || inVillage(x, z, 1) || !karstClear(x, z, 1) || Math.abs(x) > 116 || Math.abs(z) > 116 || terraceAt(x, z) > 0.3) continue;
+    add('taro_taro-1', compose(x, groundAt(x, z) - 0.05, z, 0, R(0, 6.28), 0, s, s, s)); n++;
+  }
+  for (const k in put) placeKit(k, put[k], { shadow: !/taro|banana|treefern/.test(k) });
+  // river stones: in the channel and along the banks
+  const k = KIT['boulders_stones-1'];
+  if (!k) return;
+  k.parts.forEach(p => { const n = +p.node.slice(1); p.geo.translate(-n * 4, 0, 0); });
+  const stones = {};
+  for (let i = 0; i < 260; i++) {
+    const p = RIVER_PTS[Math.floor(R(0, RIVER_PTS.length))], a = R(0, 6.28), d = R(0, RIVER_W + 4);
+    const x = p.x + Math.cos(a) * d, z = p.z + Math.sin(a) * d, v = Math.floor(R(0, 5)), s = R(0.7, 1.3);
+    if (Math.abs(x) > 117 || Math.abs(z) > 117) continue;
+    (stones[v] = stones[v] || []).push(compose(x, groundAt(x, z) - 0.15 * s, z, R(-0.2, 0.2), R(0, 6.28), R(-0.2, 0.2), s, s, s));
+  }
+  for (const v in stones) placeKit('boulders_stones-1', stones[v], { node: 'b' + v });
+}
+
+// ---------- the seeded village ----------
+// Pipeline: seed streams -> a plaza by the river with the spirit shrine -> lots for houses round it, each turned so its
+// stair comes down towards the plaza -> granaries behind, gardens of banana and taro between, the water wheel on the bank ->
+// furniture from each house's room plan (made in Blender) -> loose props on every surface. Each stage and each house draws
+// from its own stream (hashed from the seed and the stage name), so changing one rule never reshuffles the rest.
+const WORDS = ['jade', 'ford', 'mist', 'fang', 'reed', 'karst', 'heron', 'rattan', 'loam', 'ember', 'paddy', 'vine', 'cinnabar', 'drum', 'gourd', 'loom', 'tamar', 'hai', 'sen', 'oru'];
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function stream(seedStr, stage) { let s = hashStr(seedStr + '/' + stage) || 1; return () => { s = Math.imul(s ^ (s >>> 15), 2246822519) + 0x9e3779b9 >>> 0; s ^= s >>> 13; s = Math.imul(s, 3266489917) >>> 0; return ((s ^ (s >>> 16)) >>> 0) / 4294967296; }; }
+const VILLAGE_MESHES = [];
+let village = null;
+const HOUSES = ['stilthouse_sky-1', 'stilthouse_sky-2', 'stilthouse_sky-3', 'stilthouse_sky-4'];
+const info = name => KIT[name].info;
+const footR = name => { const b = info(name).bounds; return Math.max(Math.hypot(b[0][0], b[0][1]), Math.hypot(b[1][0], b[1][1]), Math.hypot(b[0][0], b[1][1]), Math.hypot(b[1][0], b[0][1])); };
+
+function buildVillage(seedStr) {
+  for (const m of VILLAGE_MESHES) scene.remove(m);
+  VILLAGE_MESHES.length = 0;
+  const C = VILLAGE, lotsR = stream(seedStr, 'lots');
+  const feet = [], houses = [], placements = {};
+  const put = (name, m) => (placements[name] = placements[name] || []).push(m);
+  // the plaza: on the shelf, towards the river; the shrine stands in it
+  const pa = Math.PI * 0.5 + (lotsR() - 0.5) * 0.9, pd = 6 + lotsR() * 5;
+  const plaza = { x: C.x + Math.cos(pa) * pd, z: C.z + Math.sin(pa) * pd * 0.6, r: 7 };
+  put('shrine_spirit-1', compose(plaza.x, groundAt(plaza.x, plaza.z) - 0.05, plaza.z, 0, lotsR() * 6.28, 0, 1.25, 1.25, 1.25));
+  feet.push({ x: plaza.x, z: plaza.z, r: plaza.r });
+  // the water wheel: on the bank nearest the plaza, its wheel in the stream
+  let best = RIVER_PTS[0], bt = 0;
+  RIVER_PTS.forEach((p, i) => { if (Math.hypot(p.x - plaza.x, p.z - plaza.z) < Math.hypot(best.x - plaza.x, best.z - plaza.z)) { best = p; bt = i / (RIVER_PTS.length - 1); } });
+  const tg = RIVER.getTangentAt(bt), wheel = { x: best.x, z: best.z, yaw: Math.atan2(tg.x, tg.z) - Math.PI / 2 };
+  const wy = riverLevel(bt) - 0.2;
+  wheel.m = compose(wheel.x, wy, wheel.z, 0, wheel.yaw + Math.PI / 2, 0, 1, 1, 1);
+  put('waterwheel_wheel-1', wheel.m);
+  feet.push({ x: wheel.x, z: wheel.z, r: 4 });
+  // the landing: a jetty a little down the river from the wheel, run out from the bank towards the channel
+  const sizeR = stream(seedStr, 'size'), tradeR = stream(seedStr, 'trade');
+  const blocks = [];
+  let jetty = null;
+  if (KIT['jetty_dock-1']) {
+    const ji = Math.max(0, Math.min(RIVER_PTS.length - 1, Math.round(bt * (RIVER_PTS.length - 1)) + (tradeR() < 0.5 ? -1 : 1) * Math.round(9 + tradeR() * 5)));
+    const jp = RIVER_PTS[ji], jt = RIVER.getTangentAt(ji / (RIVER_PTS.length - 1));
+    let nx = -jt.z, nz = jt.x;
+    if ((plaza.x - jp.x) * nx + (plaza.z - jp.z) * nz < 0) { nx = -nx; nz = -nz; }            // the normal towards the village
+    const jx = jp.x + nx * (RIVER_W + 1.2), jz = jp.z + nz * (RIVER_W + 1.2);
+    const yaw = Math.atan2(nx, nz);                                                              // local -z (Blender +y) points at the water
+    const jy = Math.max(groundAt(jx, jz) - 0.05, riverLevel(ji / (RIVER_PTS.length - 1)) + 0.85);   // the deck sits a bank's height over the water
+    jetty = { x: jx, z: jz, m: compose(jx, jy, jz, 0, yaw, 0, 1, 1, 1) };
+    put('jetty_dock-1', jetty.m);
+    feet.push({ x: jx, z: jz, r: 3.5 });
+    blocks.push({ x: jx + nx * 1.5, z: jz + nz * 1.5, r: 4.5 });
+  }
+  // the timber yard: on the forest side of the village, away from the river, where the logs come in
+  let yard = null;
+  if (KIT['timberyard_yard-1']) {
+    for (let t = 0; t < 60 && !yard; t++) {
+      const a = Math.atan2(plaza.z - best.z, plaza.x - best.x) + (tradeR() - 0.5) * 2.2, d = C.r * (0.75 + tradeR() * 0.4);
+      const x = C.x + Math.cos(a) * d, z = C.z + Math.sin(a) * d;
+      if (distRiver(x, z) < RIVER_W + 9 || distRoute(x, z) < 6) continue;
+      yard = { x, z, m: compose(x, footMin(x, z, 3) - 0.04, z, 0, a + Math.PI / 2 + (tradeR() - 0.5) * 0.4, 0, 1, 1, 1) };
+    }
+    if (yard) { put('timberyard_yard-1', yard.m); feet.push({ x: yard.x, z: yard.z, r: 6.5 }); blocks.push({ x: yard.x, z: yard.z, r: 6.5 }); }
+  }
+  // houses: lots on rings round the plaza, never on the river bank or the path. The seed picks the settlement's size.
+  const sz = sizeR();
+  const tier = sz < 0.3 ? 'hamlet' : sz < 0.75 ? 'village' : 'town';
+  const want = tier === 'hamlet' ? 4 + Math.floor(sizeR() * 3) : tier === 'village' ? 7 + Math.floor(sizeR() * 4) : 11 + Math.floor(sizeR() * 4);
+  const maxLong = tier === 'town' ? 2 : tier === 'village' ? 1 : 0, reach = tier === 'town' ? 30 : 22, edge = tier === 'town' ? 14 : 6;
+  const lots = [];
+  let longs = 0;
+  for (let t = 0; t < 2500 && lots.length < want; t++) {
+    const name = longs < maxLong && lotsR() < 0.5 ? 'longhouse_long-1' : HOUSES[Math.floor(lotsR() * HOUSES.length)];
+    const fr = footR(name) * 0.72;
+    const a = lotsR() * Math.PI * 2, d = 10 + lotsR() * reach;
+    const x = plaza.x + Math.cos(a) * d, z = plaza.z + Math.sin(a) * d;
+    if (Math.hypot(x - C.x, z - C.z) > C.r + edge) continue;
+    if (blocks.some(b => Math.hypot(x - b.x, z - b.z) < b.r + fr)) continue;
+    if (distRiver(x, z) < RIVER_W + fr + 3) continue;
+    if (distRoute(x, z) < fr * 0.75) continue;
+    if (Math.hypot(x - plaza.x, z - plaza.z) < plaza.r + fr) continue;
+    if (lots.some(l => Math.hypot(x - l.x, z - l.z) < fr + l.fr + 1.5)) continue;
+    if (Math.hypot(x - wheel.x, z - wheel.z) < fr + 6) continue;
+    lots.push({ name, x, z, fr });
+    if (name.startsWith('long')) longs++;
+  }
+  for (const L of lots) {
+    const i0 = info(L.name), foot = toThree(i0.markers.stair_foot);
+    const ld = Math.atan2(foot.x, foot.z), wantA = Math.atan2(plaza.x - L.x, plaza.z - L.z);
+    const yaw = wantA - ld + (lotsR() - 0.5) * 0.3;
+    const y = footMin(L.x, L.z, L.fr * 0.6) - 0.05;
+    const m = compose(L.x, y, L.z, 0, yaw, 0, 1, 1, 1);
+    put(L.name, m);
+    houses.push({ name: L.name, m, x: L.x, y, z: L.z, yaw, inv: m.clone().invert(), idx: houses.length });
+    feet.push({ x: L.x, z: L.z, r: L.fr * 0.9 });
+    // a granary behind most houses
+    const r = stream(seedStr, 'house:' + houses.length);
+    if (r() < 0.7) {
+      const ga = yaw + Math.PI + (r() - 0.5) * 1.2, gd = L.fr + 2.4;
+      const gx = L.x + Math.sin(ga) * gd, gz = L.z + Math.cos(ga) * gd;
+      if (distRiver(gx, gz) > RIVER_W + 4 && !blocks.some(b => Math.hypot(gx - b.x, gz - b.z) < b.r + 2.6) && !lots.some(o => o !== L && Math.hypot(gx - o.x, gz - o.z) < o.fr + 2.5) && distRoute(gx, gz) > 2.5) {
+        put(r() < 0.5 ? 'granary_store-1' : 'granary_store-2', compose(gx, footMin(gx, gz, 1.5) - 0.05, gz, 0, ga + r() * 0.6, 0, 1, 1, 1));
+        feet.push({ x: gx, z: gz, r: 2.6 });
+      }
+    }
+    // a garden: bananas and elephant ears at the house's back and sides
+    for (let k = 0; k < 4; k++) {
+      const ba = yaw + Math.PI * (0.5 + r()) + (r() - 0.5), bd = L.fr + 1 + r() * 3;
+      const bx = L.x + Math.sin(ba) * bd, bz = L.z + Math.cos(ba) * bd;
+      if (distRiver(bx, bz) < RIVER_W + 2 || distRoute(bx, bz) < 1.6 || lots.some(o => Math.hypot(bx - o.x, bz - o.z) < o.fr * 0.8)) continue;
+      put(k % 2 ? 'banana_ban-1' : 'taro_taro-1', compose(bx, groundAt(bx, bz) - 0.05, bz, 0, r() * 6.28, 0, 0.9 + r() * 0.3, 0.9 + r() * 0.3, 0.9 + r() * 0.3));
+    }
+  }
+  for (const name in placements) VILLAGE_MESHES.push(...placeKit(name, placements[name]));
+  // the wheel turns: give it its own mesh so it can spin about its hub
+  wheelSpin = null;
+  {
+    const k = KIT['waterwheel_wheel-1'], hub = k.info.markers.hub;
+    for (const mm of VILLAGE_MESHES) if (mm.userData.node === 'wheel') { scene.remove(mm); }
+    const grp = new THREE.Group(), pivot = new THREE.Group();
+    grp.matrixAutoUpdate = false; grp.matrix.copy(wheel.m);
+    pivot.position.set(hub[0], hub[2], -hub[1]);
+    for (const p of k.parts) if (p.node === 'wheel') { const mesh = new THREE.Mesh(p.geo.clone().translate(-hub[0], -hub[2], hub[1]), p.mat); mesh.castShadow = true; mesh.receiveShadow = true; pivot.add(mesh); }
+    grp.add(pivot); scene.add(grp); VILLAGE_MESHES.push(grp);
+    wheelSpin = pivot;
+  }
+  // packed red earth: the plaza, the yards under the houses, and lanes from each stair to the plaza
+  const pos = tgeo.attributes.position;
+  for (let v = 0; v < NVERT; v++) {
+    const x = pos.getX(v), z = pos.getZ(v);
+    if (Math.hypot(x - C.x, z - C.z) > C.r + 22) { splat.set(BASESPLAT.subarray(v * 4, v * 4 + 4), v * 4); continue; }
+    let pk = BASESPLAT[v * 4 + 2];
+    pk = Math.max(pk, smooth(plaza.r + 1, plaza.r - 2, Math.hypot(x - plaza.x, z - plaza.z)) * 1.8);
+    for (const h of houses) {
+      const foot = toThree(info(h.name).markers.stair_foot).applyAxisAngle(UP3, h.yaw).add(new THREE.Vector3(h.x, 0, h.z));
+      const vx = plaza.x - foot.x, vz = plaza.z - foot.z, tt = Math.max(0, Math.min(1, ((x - foot.x) * vx + (z - foot.z) * vz) / (vx * vx + vz * vz)));
+      const dp = Math.hypot(x - foot.x - vx * tt, z - foot.z - vz * tt) + 0.5 * fbm(x * 0.3, z * 0.3, 2, 93);
+      pk = Math.max(pk, smooth(1.5, 0.5, dp) * 1.6);
+      const lc = new THREE.Vector3(x, 0, z).applyMatrix4(h.inv), b = info(h.name).bounds;
+      if (lc.x > b[0][0] && lc.x < b[1][0] && lc.z > -b[1][1] && lc.z < -b[0][1]) pk = Math.max(pk, 1.1 + 0.4 * fbm(x * 0.4, z * 0.4, 2, 95));
+    }
+    splat[v * 4] = BASESPLAT[v * 4] * (1 - Math.min(1, pk) * 0.7); splat[v * 4 + 1] = BASESPLAT[v * 4 + 1] * (1 - Math.min(1, pk) * 0.8);
+    splat[v * 4 + 2] = pk; splat[v * 4 + 3] = BASESPLAT[v * 4 + 3];
+  }
+  tgeo.attributes.splat.needsUpdate = true;
+  hideUnder(LAND_FEET.concat(feet).concat(houses.map(h => ({ x: h.x, z: h.z, r: footR(h.name) * 0.85 }))));
+  setRoofs(roofsOff);
+  return { houses, plaza, wheel, jetty, yard, tier, granaries: (placements['granary_store-1'] || []).length + (placements['granary_store-2'] || []).length };
+}
+let wheelSpin = null;
+const UP3 = new THREE.Vector3(0, 1, 0);
+
+// ---------- furniture and loose props: the shared set, retextured for the jungle, solid and physical ----------
+// Furniture stands where Blender's room planner put it (each house's info carries the plan); its colliders and the
+// surfaces it offers come from furniture.json (measured by casting rays down through each model). Everything small is a
+// rigid body with its real weight from props.json, asleep until something touches it.
+const PHYS = { world: null, props: [], bodies: [], ground: null, info: null, furn: null, cache: {}, furnMeshes: [] };
+const CYL = new Set(['barrel', 'keg', 'bucket', 'urn', 'storage_jar', 'cauldron', 'wash_tub', 'jug', 'tankard', 'clay_cup', 'goblet', 'wooden_bowl', 'kettle', 'mortar_pestle', 'tallow_candle', 'candlestick', 'wine_bottle', 'inkwell', 'apple', 'coin_purse', 'cheese', 'basket']);
+const PICKS = {
+  table: ['wooden_bowl', 'clay_cup', 'tankard', 'jug', 'bread', 'cheese', 'apple', 'dried_fish', 'tallow_candle', 'knife', 'spoon', 'cutting_board', 'plate_stack', 'pewter_plate', 'goblet', 'mortar_pestle'],
+  shelf: ['potion_healing_weak', 'potion_healing_mild', 'potion_magicka_weak', 'potion_stamina_mild', 'potion_poison_weak', 'potion_healing_standard', 'potion_magicka_standard', 'potion_stamina_strong',
+          'soul_gem_faint', 'soul_gem_lesser', 'jug', 'storage_jar', 'book', 'scroll', 'tallow_candle', 'mortar_pestle', 'wooden_bowl', 'clay_cup', 'coin_purse', 'whetstone', 'inkwell', 'plate_stack'],
+  books: ['book', 'book', 'book', 'scroll', 'inkwell', 'candlestick', 'soul_gem_middling'],
+  top: ['tallow_candle', 'candlestick', 'jug', 'wooden_bowl', 'book', 'coin_purse', 'key', 'lantern', 'storage_jar', 'whetstone', 'strongbox', 'scroll'],
+  hearth: ['kettle', 'cauldron', 'ladle', 'tongs'],
+  under: ['firewood_stack', 'basket', 'sack', 'barrel', 'keg', 'crate', 'bucket', 'wash_tub', 'urn', 'storage_jar', 'crate_open'],
+  porch: ['basket', 'bucket', 'sack', 'broom', 'storage_jar', 'urn'],
+  store: ['sack', 'sack', 'basket', 'basket', 'storage_jar', 'urn'],
+  offering: ['wooden_bowl', 'clay_cup', 'apple', 'tallow_candle', 'goblet'],
+};
+const SURF_KIND = { table: 'table', desk: 'top', side_table: 'top', cupboard: 'top', drawers: 'top', chest: 'top', trunk: 'top', shelf: 'shelf', bookshelf: 'books', bottle_rack: 'shelf', bench: 'top' };
+const COUNT = { table: [3, 6], shelf: [2, 4], books: [2, 4], top: [1, 2], hearth: [1, 1], under: [3, 6], porch: [1, 3], store: [3, 5], offering: [2, 4] };
+
+function physReady() {
+  if (PHYS.world || typeof CANNON === 'undefined') return !!PHYS.world;
+  const cn = CANNON.ConvexPolyhedron.prototype.computeNormals;
+  CANNON.ConvexPolyhedron.prototype.computeNormals = function () { const e = console.error, w = console.warn; console.error = console.warn = () => {}; try { cn.call(this); } finally { console.error = e; console.warn = w; } };
+  const w = new CANNON.World();
+  w.gravity.set(0, -9.82, 0);
+  w.broadphase = new CANNON.SAPBroadphase(w);
+  w.solver.iterations = 12;
+  w.allowSleep = true;
+  w.defaultContactMaterial.friction = 0.55;
+  w.defaultContactMaterial.restitution = 0.08;
+  PHYS.playerMat = new CANNON.Material('player');
+  w.addContactMaterial(new CANNON.ContactMaterial(PHYS.playerMat, w.defaultMaterial, { friction: 0.0, restitution: 0 }));
+  PHYS.world = w;
+  return true;
+}
+function physGround() {
+  const size = 96, es = 0.5, n = size / es + 1, x0 = VILLAGE.x - size / 2, zTop = VILLAGE.z + size / 2;
+  const data = [];
+  for (let i = 0; i < n; i++) { const col = []; for (let j = 0; j < n; j++) col.push(groundAt(x0 + i * es, zTop - j * es)); data.push(col); }
+  const b = new CANNON.Body({ mass: 0, material: PHYS.world.defaultMaterial });
+  b.addShape(new CANNON.Heightfield(data, { elementSize: es }));
+  b.collisionFilterGroup = 2;
+  b.position.set(x0, 0, zTop);
+  b.quaternion.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+  PHYS.world.addBody(b);
+  PHYS.ground = { x0, z0: zTop - size, size };
+}
+function propMaterial(m) {
+  const map = m.map || null;
+  if (map) { map.magFilter = THREE.NearestFilter; }
+  const mat = new THREE.MeshLambertMaterial({ map, color: 0xffffff, side: m.side });
+  if (!map) mat.color.copy(m.color || new THREE.Color(0x999999));
+  if (m.emissiveMap || (m.emissive && m.emissive.getHex())) { mat.emissive = m.emissive.clone(); mat.emissiveMap = m.emissiveMap || null; mat.emissiveIntensity = 1; }
+  return mat;
+}
+// a loose prop: recentred on its footprint, base at 0, measured
+function propModel(id) {
+  if (!PHYS.cache[id]) PHYS.cache[id] = load('props/' + id + '.json').then(g => {
+    g.scene.traverse(n => { if (n.isMesh) { n.material = propMaterial(n.material); n.castShadow = true; n.receiveShadow = true; } });
+    g.scene.updateMatrixWorld(true);
+    const box = new THREE.Box3().setFromObject(g.scene), c = box.getCenter(new THREE.Vector3()), wrap = new THREE.Group();
+    g.scene.position.set(-c.x, -box.min.y, -c.z);
+    wrap.add(g.scene);
+    wrap.userData.size = box.getSize(new THREE.Vector3());
+    return wrap;
+  });
+  return PHYS.cache[id];
+}
+// furniture: kept at its own origin (the room plan was made against it), drawn instanced per part
+const FURN_CACHE = {};
+function furnParts(id) {
+  if (!FURN_CACHE[id]) FURN_CACHE[id] = load('props/' + id + '.json').then(g => {
+    const parts = [];
+    g.scene.updateMatrixWorld(true);
+    g.scene.traverse(n => { if (n.isMesh) parts.push({ geo: n.geometry, mat: propMaterial(n.material), rel: n.matrixWorld.clone() }); });
+    return parts;
+  });
+  return FURN_CACHE[id];
+}
+
+async function buildPhysics(seedStr) {
+  if (!physReady() || !PHYS.info || !PHYS.furn || !village) return;
+  const w = PHYS.world;
+  PHYS.props.forEach(p => { w.removeBody(p.body); scene.remove(p.mesh); });
+  PHYS.bodies.forEach(b => w.removeBody(b));
+  PHYS.furnMeshes.forEach(m => scene.remove(m));
+  PHYS.props = []; PHYS.bodies = []; PHYS.furnMeshes = [];
+  if (!PHYS.ground) physGround();
+  const S = stream(seedStr, 'props');
+  const slots = [], placed = {}, blobs = [];
+  let nFurn = 0;
+  const addBody = (m, cols) => {
+    const pos = new THREE.Vector3(), qq = new THREE.Quaternion(), sc = new THREE.Vector3();
+    m.decompose(pos, qq, sc);
+    const yaw = new THREE.Euler().setFromQuaternion(qq, 'YXZ').y;
+    const body = new CANNON.Body({ mass: 0, material: w.defaultMaterial });
+    body.position.set(pos.x, pos.y, pos.z);
+    body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), yaw);
+    for (const [cx, cy, cz, sx, sy, sz, ry, tilt] of cols) {
+      const oq = new CANNON.Quaternion(), qt = new CANNON.Quaternion();
+      oq.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), ry); qt.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), tilt || 0);
+      body.addShape(new CANNON.Box(new CANNON.Vec3(Math.max(sx, 0.02) / 2, Math.max(sy, 0.02) / 2, Math.max(sz, 0.02) / 2)), new CANNON.Vec3(cx, cy, cz), oq.mult(qt));
+    }
+    w.addBody(body); PHYS.bodies.push(body);
+    return body;
+  };
+  const all = village.houses.map(h => ({ name: h.name, m: h.m, h })).concat(VILLAGE_EXTRA());
+  for (const H of all) {
+    const i0 = info(H.name);
+    if (!i0.colliders || !i0.colliders.length) continue;
+    addBody(H.m, i0.colliders);
+    const hm = H.m;
+    // the house's own surfaces: hearth, the ground under the floor, the porch, a granary's store, the shrine's ledge
+    for (const [type, x, y, z, rz, sw, sd] of i0.surfaces) slots.push({ hm, type, x, y, z, rz, w: sw, d: sd });
+    // its furniture
+    const furnCols = [];
+    for (const [id, x, y, z, rot] of (i0.furniture || [])) {
+      const F = PHYS.furn[id]; if (!F) continue;
+      const local = new THREE.Matrix4().makeRotationY(rot).setPosition(x, y, z);
+      (placed[id] = placed[id] || []).push(hm.clone().multiply(local));
+      nFurn++;
+      for (const b of F.boxes) {
+        const c = new THREE.Vector3(b[0], b[1], b[2]).applyAxisAngle(UP3, rot).add(new THREE.Vector3(x, y, z));
+        furnCols.push([c.x, c.y, c.z, b[3], b[4], b[5], rot, 0]);
+      }
+      const kind = SURF_KIND[id];
+      if (kind) for (const s of F.surfaces) {
+        if (s.y > 1.9 || s.w < 0.18 || s.d < 0.15) continue;
+        const c = new THREE.Vector3(s.cx, s.y, s.cz).applyAxisAngle(UP3, rot).add(new THREE.Vector3(x, y, z));
+        slots.push({ hm, type: kind, x: c.x, y: c.y, z: c.z, rz: rot, w: s.w - 0.06, d: s.d - 0.06 });
+      }
+      if (id === 'bed') {   // the bed is made: blanket and pillow, fixed
+        const top = Math.max(...F.surfaces.map(s => s.y));
+        (placed.bed_blanket = placed.bed_blanket || []).push(hm.clone().multiply(local.clone().multiply(new THREE.Matrix4().makeTranslation(0, top - 0.06, 0.2))));
+        (placed.bed_pillow = placed.bed_pillow || []).push(hm.clone().multiply(local.clone().multiply(new THREE.Matrix4().makeTranslation(0, top + 0.02, -0.72))));
+      }
+      blobs.push(hm.clone().multiply(local.clone().multiply(new THREE.Matrix4().makeScale(F.size[0] + 0.3, 1, F.size[2] + 0.3).setPosition(0, 0.008, 0))));
+    }
+    if (furnCols.length) addBody(hm, furnCols);
+    if (i0.markers && i0.markers.door && i0.porch && PHYS.furn) {
+      const dd = toThree(i0.markers.door);
+      (placed.lantern = placed.lantern || []).push(hm.clone().multiply(new THREE.Matrix4().setPosition(dd.x - 0.55, i0.floor + 1.55, dd.z + 0.75)));
+    }
+    // a rug on the free floor between the hearth and the door, herbs hung from the smoke rack
+    if (i0.markers && i0.markers.hearth && i0.furniture) {
+      const hh = toThree(i0.markers.hearth), dd = toThree(i0.markers.door);
+      const rx = (hh.x + dd.x) / 2 - 0.2, rzz = hh.z + (S() - 0.5) * 0.6;
+      (placed[S() < 0.5 ? 'rug' : 'rug_round'] = placed[S() < 0.5 ? 'rug' : 'rug_round'] || []).push(hm.clone().multiply(new THREE.Matrix4().makeRotationY(Math.PI / 2).setPosition(rx, i0.floor + 0.036, rzz)));
+      for (const hx of (i0.markers.hearths || [i0.markers.hearth])) {
+        const hp = toThree(hx);
+        for (let k = 0; k < 3; k++) (placed.hanging_herbs = placed.hanging_herbs || []).push(hm.clone().multiply(new THREE.Matrix4().setPosition(hp.x + (S() - 0.5) * 1.0, i0.floor + 1.6, hp.z + (S() - 0.5) * 1.0)));
+      }
+    }
+  }
+  for (const id in placed) {
+    const parts = await furnParts(id);
+    for (const part of parts) {
+      const im = new THREE.InstancedMesh(part.geo, part.mat, placed[id].length);
+      placed[id].forEach((m, k) => im.setMatrixAt(k, m.clone().multiply(part.rel)));
+      im.castShadow = true; im.receiveShadow = true;
+      scene.add(im); PHYS.furnMeshes.push(im);
+    }
+  }
+  const bt = blobTexture(), bg = new THREE.PlaneGeometry(1, 1).rotateX(-Math.PI / 2);
+  const blobMesh = new THREE.InstancedMesh(bg, new THREE.MeshBasicMaterial({ map: bt, transparent: true, depthWrite: false, color: 0x000000, opacity: 0.6, polygonOffset: true, polygonOffsetFactor: -2 }), Math.max(1, blobs.length));
+  blobs.forEach((m, k) => blobMesh.setMatrixAt(k, m));
+  blobMesh.count = blobs.length; blobMesh.renderOrder = 1;
+  scene.add(blobMesh); PHYS.furnMeshes.push(blobMesh);
+  // fill the surfaces: seeded picks, laid side by side along each without overlapping
+  const jobs = [];
+  for (const sl of slots) {
+    const [lo, hi] = COUNT[sl.type] || [0, 1], list = PICKS[sl.type]; if (!list) continue;
+    const n = lo + Math.floor(S() * (hi - lo + 1)), taken = [];
+    for (let k = 0; k < n; k++) {
+      const id = list[Math.floor(S() * list.length)], inf = PHYS.info[id];
+      if (!inf) continue;
+      const [w_, d_] = inf.size_m, rad = Math.max(w_, d_) / 2;
+      if (rad * 2 > Math.max(sl.w, sl.d) + 0.05) continue;
+      if (!['under', 'porch', 'store'].includes(sl.type) && inf.size_m[2] > 0.5) continue;
+      let u = 0, v = 0, ok = false;
+      for (let t = 0; t < 10 && !ok; t++) {
+        u = (S() - 0.5) * Math.max(0, sl.w - rad * 2); v = (S() - 0.5) * Math.max(0, sl.d - rad * 2);
+        ok = taken.every(([a, b, r]) => Math.hypot(a - u, b - v) > r + rad + 0.015);
+      }
+      if (!ok) continue;
+      taken.push([u, v, rad]);
+      const c = Math.cos(sl.rz), s_ = Math.sin(sl.rz);
+      const local = new THREE.Vector3(sl.x + c * u + s_ * v, sl.y + 0.004, sl.z - s_ * u + c * v);
+      const at = local.applyMatrix4(sl.hm);
+      if (sl.type === 'under' || sl.type === 'porch') at.y = Math.max(at.y, groundAt(at.x, at.z) + 0.01);
+      const spin = new THREE.Euler().setFromRotationMatrix(sl.hm, 'YXZ').y + sl.rz + (S() - 0.5) * 1.4;
+      jobs.push(spawnProp(id, inf, at, spin));
+    }
+  }
+  await Promise.all(jobs);
+  PHYS.nFurn = nFurn;
+  document.getElementById('s-props').textContent = `${nFurn} furniture, ${PHYS.props.length} loose props`;
+}
+function VILLAGE_EXTRA() {   // granaries and the shrine also carry colliders and surfaces
+  const out = [];
+  for (const m of VILLAGE_MESHES) {
+    if (!m.isInstancedMesh || m.userData.node !== 'shell') continue;
+    const name = Object.keys(KIT).find(n => KIT[n].parts.some(p => p.geo.attributes.position.count === m.geometry.attributes.position.count && p.mat === m.material));
+    if (!name || !/granary|shrine|jetty|timberyard/.test(name)) continue;
+    for (let i = 0; i < m.count; i++) { const mm = new THREE.Matrix4(); m.getMatrixAt(i, mm); out.push({ name, m: mm }); }
+  }
+  return out;
+}
+function blobTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(32, 32, 4, 32, 32, 32);
+  gr.addColorStop(0, 'rgba(255,255,255,0.85)'); gr.addColorStop(0.6, 'rgba(255,255,255,0.4)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+  g.fillStyle = gr; g.fillRect(0, 0, 64, 64);
+  return new THREE.CanvasTexture(c);
+}
+async function spawnProp(id, inf, at, yaw) {
+  const proto = await propModel(id);
+  const mesh = proto.clone(true);
+  const sz = proto.userData.size, w_ = Math.max(sz.x, 0.03), h_ = Math.max(sz.y, 0.02), d_ = Math.max(sz.z, 0.03);
+  const body = new CANNON.Body({ mass: Math.max(0.05, inf.weight), material: PHYS.world.defaultMaterial });
+  if (CYL.has(id)) {
+    const r = Math.max(w_, d_) / 2, c = new CANNON.Cylinder(r * 0.95, r * 0.95, h_, 10), oq = new CANNON.Quaternion();
+    oq.setFromAxisAngle(new CANNON.Vec3(1, 0, 0), -Math.PI / 2);
+    body.addShape(c, new CANNON.Vec3(0, h_ / 2, 0), oq);
+  } else body.addShape(new CANNON.Box(new CANNON.Vec3(w_ / 2, h_ / 2, d_ / 2)), new CANNON.Vec3(0, h_ / 2, 0));
+  body.position.set(at.x, at.y, at.z);
+  body.quaternion.setFromAxisAngle(new CANNON.Vec3(0, 1, 0), yaw);
+  body.allowSleep = true; body.sleepSpeedLimit = 0.08; body.sleepTimeLimit = 0.6;
+  body.linearDamping = 0.05; body.angularDamping = 0.2;
+  PHYS.world.addBody(body);
+  body.sleep();
+  mesh.position.copy(at); mesh.quaternion.set(body.quaternion.x, body.quaternion.y, body.quaternion.z, body.quaternion.w);
+  scene.add(mesh);
+  const p = { id, info: inf, body, mesh };
+  mesh.traverse(n => { n.userData.prop = p; });
+  PHYS.props.push(p);
+  return p;
+}
+
+// ---------- roofs, the inside light, the inside tour ----------
+let roofsOff = false;
+function setRoofs(off) {
+  roofsOff = off;
+  for (const m of VILLAGE_MESHES) if (m.userData.node === 'roof') m.visible = !off;
+  document.getElementById('b-cut').setAttribute('aria-pressed', String(off));
+}
+// a small pool of lights moves to whichever house the camera is at: the hearth fire(s) and a lantern by the door
+const LAMPS = [];
+for (let i = 0; i < 3; i++) { const l = new THREE.PointLight(0xff8a3a, 0, 8, 1.7); scene.add(l); LAMPS.push(l); }
+let insideK = 0, lampT = 0, cullT = 0, insideIdx = -1;
+function interiorTick(dt) {
+  if (!village || !village.houses.length) return;
+  lampT += dt;
+  const cam = camera.position;
+  let H = null, best = 1e9;
+  for (const h of village.houses) { const d = Math.hypot(cam.x - h.x, cam.z - h.z); if (d < best) { best = d; H = h; } }
+  if ((cullT -= dt) <= 0) {
+    cullT = 0.3;
+    for (const p of PHYS.props) p.mesh.visible = Math.hypot(cam.x - p.mesh.position.x, cam.z - p.mesh.position.z) < 34;
+  }
+  const i0 = info(H.name), mk = i0.markers;
+  const src = best < 22 ? (mk.hearths || [mk.hearth]).map(p => ({ at: toThree(p).add(new THREE.Vector3(0, 0.3, 0)).applyMatrix4(H.m), fire: true }))
+    .concat([{ at: toThree(mk.door).add(new THREE.Vector3(-0.55, 1.45, 0.75)).applyMatrix4(H.m), fire: false }]) : [];
+  LAMPS.forEach((l, i) => {
+    const s = src[i];
+    if (!s) { l.intensity = 0; return; }
+    const fl = s.fire ? 0.78 + 0.22 * (0.5 + 0.3 * Math.sin(lampT * 9.1 + i * 3) + 0.2 * Math.sin(lampT * 23.7 + i)) : 0.95 + 0.05 * Math.sin(lampT * 13 + i);
+    l.color.setHex(s.fire ? 0xff7a30 : 0xffb070); l.distance = s.fire ? 8 : 6; l.intensity = (s.fire ? LIGHT_NOW.fire : LIGHT_NOW.fire * 0.5) * fl;
+    l.position.copy(s.at);
+  });
+  // inside: the camera in the house's own frame, inside the room's walls and above its floor
+  const lc = cam.clone().applyMatrix4(H.inv);
+  const inRoom = Math.abs(lc.x) < i0.W / 2 && Math.abs(lc.z) < i0.D / 2 && lc.y > i0.floor && lc.y < i0.floor + i0.Hw + 2.5 && !roofsOff;
+  insideK += ((inRoom ? 1 : 0) - insideK) * Math.min(1, dt * 3);
+  hemi.intensity = LIGHT_NOW.hI * (1 - 0.6 * insideK);
+  sun.intensity = LIGHT_NOW.sunI * (1 - 0.5 * insideK);
+  renderer.toneMappingExposure = LIGHT_NOW.exp * (1 + 0.25 * insideK);
+  scene.fog.density = LIGHT_NOW.fogD * (1 - 0.85 * insideK);
+}
+function stepInside() {
+  if (!village || !village.houses.length) return;
+  if (WALK.on) walkStop();
+  insideIdx = (insideIdx + 1) % village.houses.length;
+  const h = village.houses[insideIdx], i0 = info(h.name), mk = i0.markers;
+  const eye = toThree(mk.eye).applyMatrix4(h.m), hearth = toThree(mk.hearth).applyMatrix4(h.m);
+  setFollow(false);
+  if (roofsOff) setRoofs(false);
+  controls.target.copy(hearth).add(new THREE.Vector3(0, 0.7, 0));
+  camera.position.copy(eye);
+  controls.minDistance = 0.4; controls.maxDistance = i0.W * 0.7; controls.maxPolarAngle = Math.PI * 0.62;
+  const kind = h.name.startsWith('long') ? 'longhouse' : 'stilt house';
+  showCaption(`Inside a ${kind} (${insideIdx + 1} of ${village.houses.length}). Behind you is the door onto the porch and the stair you saw outside. The windows are the shuttered openings, the smoke rack hangs over the clay hearth box, and the smoke leaves by the vents under the horns. The furniture is the shared set, retextured; everything small on it can be picked up in Walk in yourself.`);
+}
+function leaveInside() {
+  if (insideIdx < 0) return;
+  controls.minDistance = 1.5; controls.maxDistance = 170; controls.maxPolarAngle = Math.PI * 0.495;
+  insideIdx = -1;
+}
+let capTimer = 0;
+function showCaption(t) { caption.textContent = t; caption.hidden = false; clearTimeout(capTimer); capTimer = setTimeout(() => { caption.hidden = true; }, 10000); }
+
+// ---------- weather presets ----------
+const LIGHTS = {
+  mist: { zen: 0x8fa6a8, hor: 0xc9d2c4, fog: 0xa9b7a8, fogD: 0.011, sun: 0xffe6c0, sunI: 1.05, dir: [0.55, 0.35, -0.4], hs: 0xdfe8de, hg: 0x3b4026, hI: 0.75, exp: 0.95, fire: 1.6, haze: 0.9, mist: 0.26, shafts: 0.1, rain: false },
+  noon: { zen: 0x4a86c4, hor: 0xcfe0d8, fog: 0xb3c7bc, fogD: 0.0075, sun: 0xfff3dc, sunI: 1.6, dir: [0.25, 0.92, 0.2], hs: 0xd2e6e8, hg: 0x4a4a2a, hI: 0.62, exp: 0.9, fire: 1.4, haze: 0.2, mist: 0.08, shafts: 0.06, rain: false },
+  rain: { zen: 0x2a333c, hor: 0x6f7a78, fog: 0x56605e, fogD: 0.02, sun: 0xffa070, sunI: 0.35, dir: [-0.8, 0.18, 0.3], hs: 0x7f8e98, hg: 0x2a2a1e, hI: 0.6, exp: 1.15, fire: 2.2, haze: 1.0, mist: 0.3, shafts: 0, rain: true },
+};
+let sunDir = new THREE.Vector3(), LIGHT_NOW = LIGHTS.mist;
+function setLight(k) {
+  const L = LIGHT_NOW = LIGHTS[k];
+  skyU.uZen.value.set(L.zen); skyU.uHor.value.set(L.hor); skyU.uSunCol.value.set(L.sun); skyU.uHaze.value = L.haze;
+  sunDir.set(...L.dir).normalize(); skyU.uSun.value.copy(sunDir);
+  scene.fog.color.set(L.fog); scene.fog.density = L.fogD;
+  sun.color.set(L.sun); sun.intensity = L.sunI;
+  hemi.color.set(L.hs); hemi.groundColor.set(L.hg); hemi.intensity = L.hI;
+  renderer.toneMappingExposure = L.exp;
+  MIST.forEach((m, i) => { m.material.opacity = L.mist * (1 - i * 0.18); m.material.color.set(L.fog).lerp(new THREE.Color(0xffffff), 0.35); });
+  SHAFTS.forEach(s => { s.visible = L.shafts > 0; s.children.forEach(c => { c.material.opacity = L.shafts; }); s.rotation.z = Math.atan2(L.dir[0], L.dir[1]) * 0.5; });
+  RAIN.visible = L.rain;
+  for (const id of ['mist', 'noon', 'rain']) document.getElementById('t-' + id).setAttribute('aria-pressed', String(id === k));
+}
+setLight('mist');
+for (const id of ['mist', 'noon', 'rain']) document.getElementById('t-' + id).addEventListener('click', () => setLight(id));
+
+// ---------- the walker ----------
+let body = null, mixer = null, bodyClips = [], dist = 0, follow = true, paused = false, wire = false;
+const SPEED = 0.83;
+const tmp = new THREE.Vector3(), look = new THREE.Vector3();
+function placeBody() {
+  const L = ROUTE.getLength(), t = ((dist % L) + L) % L / L;
+  ROUTE.getPointAt(t, tmp); ROUTE.getTangentAt(t, look);
+  body.position.set(tmp.x, groundAt(tmp.x, tmp.z), tmp.z);
+  body.rotation.y = Math.atan2(look.x, look.z);
+}
+function loadWalker() {
+  return Promise.all([load('assets/npc_human_mh_walk.json'), load('assets/gear_hair_mh.json')]).then(([g, hg]) => {
+    body = g.scene;
+    body.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; n.frustumCulled = false; } });
+    const hairs = [];
+    hg.scene.traverse(n => { if (n.isSkinnedMesh) hairs.push(n); });
+    hairs.forEach(h => {
+      const name = h.name.startsWith('hair_') ? h.name : h.parent.name;
+      if (name !== 'hair_cropped') return;
+      const bones = h.skeleton.bones.map(bn => body.getObjectByName(bn.name));
+      if (bones.some(b => !b)) return;
+      (body.getObjectByName('npc_human_mh') || body).add(h);
+      h.bind(new THREE.Skeleton(bones, h.skeleton.boneInverses), h.bindMatrix);
+      h.castShadow = true; h.frustumCulled = false;
+    });
+    scene.add(body);
+    mixer = new THREE.AnimationMixer(body);
+    bodyClips = g.animations;
+    playClip('walk');
+  }).catch(err => console.error('walker', err));
+}
+let mixActions = {}, mixCurrent = null;
+function playClip(name) {
+  if (!mixer || !body) return;
+  if (!mixActions[name]) { const c = bodyClips.find(a => a.name === name); if (!c) return; mixActions[name] = mixer.clipAction(c); }
+  if (mixCurrent === name) return;
+  const next = mixActions[name], prev = mixCurrent && mixActions[mixCurrent];
+  next.reset().play();
+  if (prev) next.crossFadeFrom(prev, 0.25, false);
+  mixCurrent = name;
+}
+
+// ---------- walk it yourself: a body you steer into the houses; climb the stairs, bump, pick up and throw ----------
+const WALK = { dist: 2.8, on: false, body: null, keys: {}, held: null, yaw: 0, grounded: false };
+const hud = document.getElementById('hud'), hint = document.getElementById('hud-hint');
+function walkStart() {
+  if (!physReady() || !body || !village) return;
+  if (!WALK.body) {
+    const b = new CANNON.Body({ mass: 70, material: PHYS.playerMat, fixedRotation: true, linearDamping: 0.0 });
+    [0.3, 0.85, 1.4].forEach(y => b.addShape(new CANNON.Sphere(0.28), new CANNON.Vec3(0, y, 0)));
+    b.allowSleep = false;
+    b.collisionFilterGroup = 4; b.collisionFilterMask = ~2;
+    PHYS.world.addBody(b);
+    WALK.body = b;
+  }
+  leaveInside();
+  // start at the foot of the nearest house's stair, facing it
+  const h = village.houses[0], foot = toThree(info(h.name).markers.stair_foot).applyMatrix4(h.m);
+  const away = new THREE.Vector3(foot.x - h.x, 0, foot.z - h.z).normalize();
+  const st = foot.clone().addScaledVector(away, 1.5);
+  WALK.body.position.set(st.x, groundAt(st.x, st.z) + 0.05, st.z);
+  WALK.body.velocity.set(0, 0, 0);
+  WALK.on = true; setFollow(false); press('b-walk', true);
+  controls.enableZoom = false; controls.minDistance = 0.05; controls.maxPolarAngle = Math.PI * 0.75; camera.near = 0.05; camera.updateProjectionMatrix();
+  controls.target.set(st.x, groundAt(st.x, st.z) + 1.5, st.z);
+  camera.position.copy(controls.target).addScaledVector(away, 2.8).add(new THREE.Vector3(0, 0.8, 0));
+  hud.hidden = false;
+  playClip('idle');
+  showCaption('Walk in yourself: climb the stair onto the porch and go through the door. Point the centre dot at anything small and press E to lift it, F to throw it.');
+}
+function walkStop() {
+  WALK.on = false; press('b-walk', false); hud.hidden = true; drop();
+  controls.enableZoom = true; camera.near = 0.08; camera.updateProjectionMatrix(); controls.minDistance = 1.5; controls.maxPolarAngle = Math.PI * 0.495;
+  playClip('walk');
+}
+window.addEventListener('keydown', e => {
+  if (!WALK.on || e.target.tagName === 'INPUT') return;
+  const k = e.key.toLowerCase();
+  WALK.keys[k] = true;
+  if (['w', 'a', 's', 'd', ' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
+  if (k === 'e') (WALK.held ? drop() : pickUp());
+  if (k === 'f' || k === 'q') throwHeld();
+  if (k === ' ' && WALK.grounded) WALK.body.velocity.y = 4.4;
+  if (k === 'escape') walkStop();
+});
+window.addEventListener('keyup', e => { WALK.keys[e.key.toLowerCase()] = false; });
+canvas.addEventListener('wheel', e => { if (WALK.on) WALK.dist = Math.min(5, Math.max(0.6, WALK.dist * (e.deltaY > 0 ? 1.12 : 0.89))); }, { passive: true });
+const ray = new THREE.Raycaster(), center = new THREE.Vector2(0, 0);
+function aimedProp(maxDist = 3.2) {
+  ray.setFromCamera(center, camera);
+  ray.far = camera.position.distanceTo(controls.target) + maxDist;
+  const hits = ray.intersectObjects(PHYS.props.filter(p => p.mesh.visible).map(p => p.mesh), true);
+  for (const h of hits) {
+    const p = h.object.userData.prop;
+    if (!p || h.point.distanceTo(controls.target) >= maxDist) continue;
+    const Tg = controls.target, rr = new CANNON.RaycastResult(), qq = h.point.clone().lerp(Tg, 0.04);
+    if (PHYS.world.raycastClosest(new CANNON.Vec3(Tg.x, Tg.y, Tg.z), new CANNON.Vec3(qq.x, qq.y, qq.z), { skipBackfaces: false, collisionFilterMask: ~6 }, rr) && rr.body.mass === 0) return null;
+    return { p, point: h.point };
+  }
+  return null;
+}
+function pickUp() {
+  const a = aimedProp(); if (!a) return;
+  if (a.p.info.weight > 22) { a.p.body.wakeUp(); flash('Too heavy to lift: push it instead (' + a.p.info.weight + ' kg)'); return; }
+  WALK.held = a.p; a.p.body.allowSleep = false; a.p.body.wakeUp(); a.p.body.angularDamping = 0.9;
+}
+function drop() { if (WALK.held) { const b = WALK.held.body; b.angularDamping = 0.2; b.allowSleep = true; b.wakeUp(); WALK.held = null; } }
+function throwHeld() {
+  const p = WALK.held; if (!p) return;
+  drop();
+  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
+  const speed = Math.min(14, 3 + 24 / Math.sqrt(p.info.weight + 0.2));
+  p.body.velocity.set(dir.x * speed, dir.y * speed + 1.5, dir.z * speed);
+  p.body.angularVelocity.set((Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6);
+}
+let flashT = 0;
+function flash(t) { hint.textContent = t; flashT = 2.2; }
+let downAt = null;
+canvas.addEventListener('pointerdown', e => { downAt = [e.clientX, e.clientY]; if (follow) setFollow(false); });
+canvas.addEventListener('pointerup', e => {
+  if (!downAt || Math.hypot(e.clientX - downAt[0], e.clientY - downAt[1]) > 5 || !PHYS.props.length) return;
+  const r = canvas.getBoundingClientRect();
+  ray.setFromCamera(new THREE.Vector2((e.clientX - r.left) / r.width * 2 - 1, -(e.clientY - r.top) / r.height * 2 + 1), camera);
+  ray.far = 40;
+  const h = ray.intersectObjects(PHYS.props.filter(p => p.mesh.visible).map(p => p.mesh), true)[0];
+  if (!h) return;
+  const p = h.object.userData.prop, d = ray.ray.direction, imp = Math.min(6, 1.5 + p.info.weight * 0.6);
+  p.body.wakeUp();
+  p.body.applyImpulse(new CANNON.Vec3(d.x * imp, d.y * imp + 0.4 * imp, d.z * imp), new CANNON.Vec3(h.point.x, h.point.y, h.point.z));
+});
+const fwd = new THREE.Vector3(), side = new THREE.Vector3(), tmpV = new THREE.Vector3();
+function physStep(dt) {
+  if (!PHYS.world) return;
+  if (WALK.on && WALK.body) {
+    const b = WALK.body, k = WALK.keys;
+    camera.getWorldDirection(fwd); fwd.y = 0; fwd.normalize(); side.crossVectors(fwd, UP3);
+    const ix = (k.d || k.arrowright ? 1 : 0) - (k.a || k.arrowleft ? 1 : 0), iz = (k.w || k.arrowup ? 1 : 0) - (k.s || k.arrowdown ? 1 : 0);
+    const run = k.shift, sp = run ? 4.2 : 1.9;
+    tmpV.copy(fwd).multiplyScalar(iz).addScaledVector(side, ix);
+    const moving = tmpV.lengthSq() > 0;
+    if (moving) tmpV.normalize().multiplyScalar(sp);
+    b.velocity.x = tmpV.x; b.velocity.z = tmpV.z;
+    const from = new CANNON.Vec3(b.position.x, b.position.y + 0.2, b.position.z), to = new CANNON.Vec3(b.position.x, b.position.y - 0.14, b.position.z);
+    const rr = new CANNON.RaycastResult();
+    WALK.grounded = (PHYS.world.raycastClosest(from, to, { skipBackfaces: true, collisionFilterMask: ~4 }, rr) && rr.body !== b) || b.position.y - groundAt(b.position.x, b.position.z) < 0.06;
+    // on a stair or slope with no key held, stand still instead of sliding down
+    if (!moving && WALK.grounded && b.velocity.y < 0.5) { b.velocity.y = Math.max(b.velocity.y, 0); b.velocity.x = 0; b.velocity.z = 0; b.position.y += 0; }
+    if (moving) WALK.yaw = Math.atan2(tmpV.x, tmpV.z);
+    // step up onto sills, hearth frames and stair treads up to 0.4 m: feel ahead at knee height for a top to stand on
+    if (moving) {
+      const dx = Math.sin(WALK.yaw) * 0.42, dz = Math.cos(WALK.yaw) * 0.42, sr = new CANNON.RaycastResult();
+      const top = new CANNON.Vec3(b.position.x + dx, b.position.y + 0.6, b.position.z + dz), bot = new CANNON.Vec3(top.x, b.position.y - 0.02, top.z);
+      if (PHYS.world.raycastClosest(top, bot, { skipBackfaces: true, collisionFilterMask: ~6 }, sr) && sr.body && sr.body.mass === 0) {
+        const rise = sr.hitPointWorld.y - b.position.y;
+        if (rise > 0.03 && rise < 0.42 && sr.hitNormalWorld.y > 0.55) { b.position.y += Math.min(rise + 0.02, dt * 6); if (b.velocity.y < 0) b.velocity.y = 0; }
+      }
+    }
+    // the open ground outside the simulated heightfield: stand on the terrain itself
+    const gh = groundAt(b.position.x, b.position.z);
+    if (b.position.y < gh) { b.position.y = gh; if (b.velocity.y < 0) b.velocity.y = 0; }
+    playClip(!moving ? 'idle' : run ? 'jog_fwd' : 'walk');
+  }
+  if (WALK.held) {
+    const p = WALK.held, hold = new THREE.Vector3();
+    p.body.allowSleep = false; p.body.wakeUp();
+    camera.getWorldDirection(hold);
+    hold.multiplyScalar(0.75).add(new THREE.Vector3(WALK.body.position.x, WALK.body.position.y + 1.25, WALK.body.position.z));
+    const pb = p.body.position;
+    p.body.velocity.set((hold.x - pb.x) * 14, (hold.y - pb.y) * 14, (hold.z - pb.z) * 14);
+    if (tmpV.set(hold.x - pb.x, hold.y - pb.y, hold.z - pb.z).length() > 2.5) drop();
+  }
+  PHYS.world.step(1 / 60, dt, 4);
+  for (const p of PHYS.props) {
+    if (p.body.sleepState === CANNON.Body.SLEEPING && !p.moved) continue;
+    p.moved = p.body.sleepState !== CANNON.Body.SLEEPING;
+    p.mesh.position.set(p.body.position.x, p.body.position.y, p.body.position.z);
+    p.mesh.quaternion.set(p.body.quaternion.x, p.body.quaternion.y, p.body.quaternion.z, p.body.quaternion.w);
+    // anything thrown off the edge of the world comes back
+    if (p.body.position.y < groundAt(p.body.position.x, p.body.position.z) - 3) { p.body.position.y = groundAt(p.body.position.x, p.body.position.z) + 1; p.body.velocity.set(0, 0, 0); }
+  }
+  if (WALK.on && WALK.body) {
+    const b = WALK.body;
+    body.position.set(b.position.x, b.position.y, b.position.z);
+    let dy = WALK.yaw - body.rotation.y; dy = Math.atan2(Math.sin(dy), Math.cos(dy));
+    body.rotation.y += dy * Math.min(1, dt * 10);
+    const head = new THREE.Vector3(b.position.x, b.position.y + 1.55, b.position.z);
+    const off = camera.position.clone().sub(controls.target).setLength(WALK.dist);
+    controls.target.copy(head); camera.position.copy(head).add(off);
+    if (flashT > 0) { flashT -= dt; } else { const a = aimedProp(); hint.textContent = WALK.held ? WALK.held.info.name + ' · F to throw, E to drop' : a ? a.p.info.name + ' · ' + a.p.info.weight + ' kg · E' : ''; }
+  }
+}
+
+// ---------- UI ----------
+const panel = document.querySelector('.panel'), menuBtn = document.getElementById('b-menu');
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const open = !panel.classList.contains('closed'), sideW = panel.getBoundingClientRect().right + 8;
+  if (open && w - sideW > 420) { camera.aspect = (w + sideW) / h; camera.setViewOffset(w + sideW, h, 0, 0, w, h); } else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+function setMenu(open) { panel.classList.toggle('closed', !open); menuBtn.textContent = open ? 'Hide' : 'Menu'; menuBtn.setAttribute('aria-expanded', open); resize(); }
+menuBtn.addEventListener('click', () => setMenu(panel.classList.contains('closed')));
+if (window.innerWidth < 700 || window.innerHeight < 560) setMenu(false);
+window.addEventListener('resize', resize);
+resize();
+const press = (id, on) => document.getElementById(id).setAttribute('aria-pressed', String(on));
+function setFollow(v) { follow = v; press('b-follow', v); if (v) { leaveInside(); if (WALK.on) walkStop(); } }
+document.getElementById('b-follow').addEventListener('click', () => setFollow(!follow));
+document.getElementById('b-pause').addEventListener('click', e => { paused = !paused; press('b-pause', paused); e.currentTarget.textContent = paused ? 'Play' : 'Pause'; });
+document.getElementById('b-wire').addEventListener('click', () => {
+  wire = !wire; press('b-wire', wire);
+  scene.traverse(n => { if (n.isMesh && n !== sky) [].concat(n.material).forEach(m => { m.wireframe = wire; }); });
+});
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paused = true; press('b-pause', true); document.getElementById('b-pause').textContent = 'Play'; }
+function view(target, pos) { setFollow(false); leaveInside(); if (WALK.on) walkStop(); if (roofsOff) setRoofs(false); controls.target.copy(target); camera.position.copy(pos); }
+document.getElementById('b-village').addEventListener('click', () => {
+  const g = groundAt(VILLAGE.x, VILLAGE.z);
+  view(new THREE.Vector3(VILLAGE.x, g + 3, VILLAGE.z), new THREE.Vector3(VILLAGE.x + 34, g + 24, VILLAGE.z + 40));
+});
+document.getElementById('b-river').addEventListener('click', () => {
+  const w = village ? village.wheel : { x: 0, z: 40 }, g = groundAt(w.x, w.z);
+  view(new THREE.Vector3(w.x, g + 2, w.z), new THREE.Vector3(w.x - 14, g + 5, w.z + 13));
+});
+document.getElementById('b-terr').addEventListener('click', () => {
+  const g = groundAt(TERR.x, TERR.z);
+  view(new THREE.Vector3(TERR.x, g, TERR.z), new THREE.Vector3(TERR.x - 30, g + 14, TERR.z + 34));
+});
+document.getElementById('b-karst').addEventListener('click', () => {
+  const [kx, kz] = KARSTS[7], g = groundAt(kx, kz);
+  view(new THREE.Vector3(kx, g + 22, kz), new THREE.Vector3(kx - 26, g + 8, kz - 58));
+});
+document.getElementById('b-inside').addEventListener('click', stepInside);
+document.getElementById('b-walk').addEventListener('click', () => (WALK.on ? walkStop() : walkStart()));
+document.getElementById('b-cut').addEventListener('click', () => {
+  const off = !roofsOff;
+  setRoofs(off);
+  if (off) {
+    leaveInside(); setFollow(false);
+    const h = village && village.houses.length ? village.houses[0] : VILLAGE;
+    controls.target.set(h.x, groundAt(h.x, h.z) + 2, h.z);
+    camera.position.set(h.x + 9, groundAt(h.x, h.z) + 14, h.z + 9);
+    showCaption('Roofs lifted off. Every house is hollow: the woven walls have their thickness in every opening, the clay hearth box sits in the plank floor under the smoke rack, and the shared furniture stands where the room plan put it, clear of the door and the fire.');
+  }
+});
+
+const seedBox = document.getElementById('seed');
+const cleanSeed = s => (s || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'heron-ford';
+function rebuild(raw) {
+  const sd = cleanSeed(raw);
+  seedBox.value = sd;
+  if (!KIT['stilthouse_sky-1'] || !KIT['waterwheel_wheel-1']) return;
+  const t0 = performance.now();
+  leaveInside(); if (WALK.on) walkStop();
+  village = buildVillage(sd);
+  const longs = village.houses.filter(h => h.name.startsWith('long')).length;
+  document.getElementById('s-bld').textContent = `a ${village.tier}: ${village.houses.length} houses (${longs} long), ${village.granaries} granaries, shrine, wheel${village.jetty ? ', jetty' : ''}${village.yard ? ', timber yard' : ''}`;
+  document.getElementById('s-gen').textContent = Math.round(performance.now() - t0) + ' ms';
+  document.getElementById('s-props').textContent = 'furnishing…';
+  buildPhysics(sd).catch(err => console.error('physics', err));
+  try { if (location.hash.slice(1) !== sd) history.replaceState(null, '', '#' + sd); } catch (e) { /* the hash is a convenience */ }
+}
+document.getElementById('seed-form').addEventListener('submit', e => { e.preventDefault(); rebuild(seedBox.value); });
+document.getElementById('b-roll').addEventListener('click', () => {
+  const w = () => WORDS[Math.floor(Math.random() * WORDS.length)];
+  rebuild(w() + '-' + w() + '-' + Math.floor(Math.random() * 100));
+});
+
+// ---------- load everything ----------
+Promise.all([
+  Promise.all(KIT_NAMES.map(n => Promise.all([load('kit/' + n + '.json'), fetch('kit/' + n + '.info.json').then(r => r.json())])
+    .then(([g, inf]) => { KIT[n] = { parts: kitParts(g, n), info: inf }; }).catch(err => console.warn('kit missing', n, err)))),
+  fetch('props/props.json').then(r => r.json()).then(j => { PHYS.info = j; }),
+  fetch('props/furniture.json').then(r => r.json()).then(j => { PHYS.furn = j; }),
+]).then(() => {
+  buildLand();
+  rebuild(location.hash.length > 1 ? decodeURIComponent(location.hash.slice(1)) : 'heron-ford');
+  status.textContent = 'Loading the walker…';
+  return loadWalker();
+}).then(() => { status.textContent = 'Walking the loop'; setTimeout(() => { status.hidden = true; }, 4000); })
+  .catch(err => { status.textContent = 'Part of the kit failed to load. Reload the page to try again.'; console.error(err); });
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let acc = 0, frames = 0, elapsed = 0;
+const sTris = document.getElementById('s-tris'), sCalls = document.getElementById('s-calls'), sFps = document.getElementById('s-fps');
+controls.target.set(-6, 3, 8);
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!paused) { elapsed += dt; timeU.value = elapsed; }
+  if (body && !WALK.on) {
+    if (!paused) { dist += SPEED * dt; mixer.update(dt); }
+    placeBody();
+    if (follow) {
+      const target = new THREE.Vector3(body.position.x, body.position.y + 1.0, body.position.z);
+      camera.position.add(target.clone().sub(controls.target));
+      controls.target.copy(target);
+    }
+  } else if (body && WALK.on) mixer.update(dt);
+  physStep(dt);
+  interiorTick(dt);
+  if (wheelSpin && !paused) wheelSpin.rotation.z -= dt * 0.45;
+  MIST.forEach((m, i) => { m.material.map.offset.set(elapsed * 0.0025 * (i + 1), elapsed * 0.0012 * (i % 2 ? 1 : -1)); });
+  if (RAIN.visible) {
+    RAIN.position.set(camera.position.x, camera.position.y - 12, camera.position.z);
+    const p = RAIN.geometry.attributes.position, a = p.array, fall = paused ? 0 : dt * 16;
+    for (let i = 0; i < a.length; i += 6) { a[i + 1] -= fall; a[i + 4] -= fall; if (a[i + 1] < 0) { a[i + 1] += 30; a[i + 4] += 30; } }
+    p.needsUpdate = true;
+  }
+  const c = controls.target;
+  sun.position.set(c.x + sunDir.x * 100, c.y + sunDir.y * 100, c.z + sunDir.z * 100);
+  sun.target.position.copy(c);
+  sky.position.copy(camera.position);
+  controls.update();
+  renderer.render(scene, camera);
+  acc += dt; frames++;
+  if (acc > 0.5) {
+    sTris.textContent = renderer.info.render.triangles.toLocaleString('en-GB');
+    sCalls.textContent = renderer.info.render.calls;
+    sFps.textContent = Math.round(frames / acc) + ' fps';
+    acc = 0; frames = 0;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+window.mistfang = { camera, controls, setLight, rebuild, stepInside, setRoofs, view, village: () => village, follow: setFollow, KIT, PHYS, walkStart, WALK, groundAt };
+})();
+</script>
