@@ -21,6 +21,9 @@ VARIANTS = {
     'medium': dict(Rw=2.85, T=0.5, Hw=2.15, windows=[(15, 'low'), (155, 'low')], table=True, loft=False, tripod=True, chest=False),
     'tall':   dict(Rw=3.35, T=0.52, Hw=3.35, windows=[(10, 'low'), (170, 'low'), (62, 'high'), (118, 'high')], table=True,
                    loft=True, tripod=True, chest=True),
+    # the moot hall at the heart of a town: one wide room round a big hearth, long tables for the whole settlement
+    'hall':   dict(Rw=4.6, T=0.56, Hw=2.55, windows=[(25, 'low'), (155, 'low'), (65, 'low'), (115, 'low')], table=False,
+                   loft=False, tripod=True, chest=False, hall=True),
 }
 PITCH = math.radians(47)
 ZD = 0.58          # deck top above the water
@@ -337,6 +340,16 @@ def build(variant='medium', seed='fen'):
         hx2 = math.sqrt(Rw ** 2 - (y0 + 0.04) ** 2) - 0.05
         beam(R, 'loft_rail_l', 'wood', (-hx2, y0 + 0.04, zl + 0.88), (0.5, y0 + 0.04, zl + 0.88), 0.07, 0.07, e=0.01)
         beam(R, 'loft_rail_r', 'wood', (1.45, y0 + 0.04, zl + 0.88), (hx2, y0 + 0.04, zl + 0.88), 0.07, 0.07, e=0.01)
+    elif V.get('hall'):
+        # long tables for the moot: one across the back, one down each side, benches to sit both sides of each
+        for sx in (-0.78, 0.78):
+            put('table', (sx, 2.75, ZD), (0, -1))
+            put('bench', (sx, 2.08, ZD), (0, -1))
+            put('bench', (sx, 3.42, ZD), (0, 1))
+        for side in (-1, 1):
+            for sy in (-0.15, 1.37):
+                put('table', (side * 2.95, sy, ZD), (-side, 0))
+            put('bench', (side * 2.28, 0.61, ZD), (-side, 0))
     else:
         a = math.radians(92)
         # the bed's long side to the wall: the corners of a 2 m bed must clear the curve
@@ -363,7 +376,11 @@ def build(variant='medium', seed='fen'):
         put('jug', tc - tang * 0.35 + Vector((0, 0, 0.76)), inward)
         for sx in (-0.35, 0.4):
             put('stool', tc + inward * 0.62 + tang * sx, inward)
-    if V['chest']:
+    if V.get('hall'):
+        wall('cupboard', 238, 0.5, width=1.0)
+        wall('bookshelf', 128, 0.35, width=1.06)
+        wall('wall_hanging', 90, 0.05, z=ZD + 1.3, width=1.2)
+    elif V['chest']:
         wall('chest', 140, 0.524, width=0.84)
         wall('drawers', 230, 0.51, width=0.93)
         put('rug_round', P(2.15, math.radians(92), ZD + 0.002), (0, 1))

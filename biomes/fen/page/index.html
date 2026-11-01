@@ -115,6 +115,9 @@
 (function () {
 'use strict';
 const status = document.getElementById('status');
+// if anything breaks, say so on the page instead of sitting on "Loading"
+addEventListener('error', e => { status.hidden = false; status.textContent = 'Something went wrong: ' + (e.message || 'a file failed') + '. Reload to try again.'; });
+addEventListener('unhandledrejection', e => { status.hidden = false; status.textContent = 'Something went wrong: ' + ((e.reason && e.reason.message) || 'a file failed') + '. Reload to try again.'; });
 const caption = document.getElementById('caption');
 
 // ---------- noise ----------
@@ -233,7 +236,8 @@ for (const k in SHEETS) T[k] = tex(SHEETS[k]());
 // ---------- renderer, scene, sky ----------
 const canvas = document.getElementById('view');
 const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+const SMALL = matchMedia('(pointer: coarse)').matches || Math.min(screen.width, screen.height) < 700;   // phones and tablets: lighter
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, SMALL ? 1 : 1.5));
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -265,7 +269,7 @@ const hemi = new THREE.HemisphereLight(0xd8e0e4, 0x6b5638, 0.7);
 scene.add(hemi);
 const sun = new THREE.DirectionalLight(0xffe9c8, 1.2);
 sun.castShadow = true;
-sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.mapSize.set(SMALL ? 1024 : 2048, SMALL ? 1024 : 2048);
 sun.shadow.bias = -0.0004;
 sun.shadow.normalBias = 0.03;
 Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 140 });
@@ -439,7 +443,9 @@ const waterU = {
 
 // ---------- assets baked in Blender ----------
 const loader = new THREE.GLTFLoader();
-const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+let nLoad = 0, nDone = 0, nFail = 0;
+const showLoad = () => { if (nDone < nLoad) status.textContent = 'Loading the fen: ' + nDone + ' of ' + nLoad + ' models' + (nFail ? ' (' + nFail + ' failed)' : ''); };
+const load = url => { nLoad++; showLoad(); return new Promise((res, rej) => loader.load(url, g => { nDone++; showLoad(); res(g); }, undefined, e => { nDone++; nFail++; showLoad(); rej(e); })); };
 const ASSET_NAMES = ['house_small', 'house_medium', 'house_tall', 'tallow_a', 'tallow_b', 'tallow_c', 'snag', 'lilies', 'pitchers', 'sundews',
   'tussock', 'boulder_a', 'boulder_b', 'boardwalk', 'boardwalk_rail', 'lantern_post', 'dugout', 'peat_bank', 'eel_trap'];
 const GLOW = [];          // emissive materials: embers, lamp glass

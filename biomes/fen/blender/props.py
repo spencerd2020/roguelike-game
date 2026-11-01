@@ -154,6 +154,67 @@ def eel_trap(seed):
     return R, dict(), None
 
 
+def peat_rack(seed):
+    """A peat-drying rack: two leaning trestles carry three poles, and cut peats are laid across them in rows to dry in
+    the wind, the fuel of every hearth in the fen. Racks stand on the bank, where the peat is cut."""
+    rng = kit.stream(seed, 'peat_rack')
+    R = kit.Rec()
+    L = 2.6
+    for i, x in enumerate((-L / 2 + 0.15, L / 2 - 0.15)):
+        for side in (-1, 1):
+            cyl(R, f'leg:{i}:{side}', 'timber', (x + rng.uniform(-0.03, 0.03), side * 0.55, -0.15), (x, side * 0.12, 1.25), 0.05, 0.045,
+                segs=7, e=0.01)
+        cyl(R, f'brace:{i}', 'timber', (x, -0.42, 0.45), (x, 0.42, 0.45), 0.03, segs=6, e=0.006)
+        cyl(R, f'lash:{i}', 'rope', (x - 0.06, 0, 1.18), (x + 0.06, 0, 1.18), 0.06, segs=6)
+    for k, (y, z) in enumerate(((-0.34, 0.75), (0.0, 1.22), (0.34, 0.75))):
+        cyl(R, f'pole:{k}', 'timber', (-L / 2 - 0.12, y, z), (L / 2 + 0.12, y, z + rng.uniform(-0.02, 0.02)), 0.035, segs=7, e=0.006)
+    # peats laid across the low poles, two to a bay, a few gaps where they have been taken
+    for k, (y, z) in enumerate(((-0.34, 0.75), (0.34, 0.75))):
+        x = -L / 2 + 0.25
+        j = 0
+        while x < L / 2 - 0.2:
+            if rng.random() < 0.85:
+                M = Matrix.Translation((x, y, z + 0.075)) @ Matrix.Rotation(rng.uniform(-0.1, 0.1), 4, 'Z') @ \
+                    Matrix.Rotation(rng.uniform(-0.08, 0.08), 4, 'X')
+                box(R, f'peat:{k}:{j}', 'peat', M, (0.12, 0.3, 0.1), e=0.022, g=(0, 0, 1))
+            x += rng.uniform(0.15, 0.19)
+            j += 1
+    # a few drying on the ground below, stood on end in pairs
+    for j in range(4):
+        x = rng.uniform(-1.0, 1.0)
+        a = rng.uniform(0, math.pi)
+        for d in (-1, 1):
+            M = Matrix.Translation((x + d * 0.06 * math.cos(a), d * 0.06 * math.sin(a), 0.17)) @ Matrix.Rotation(a, 4, 'Z') @ \
+                Matrix.Rotation(d * 0.25, 4, 'X')
+            box(R, f'ground_peat:{j}:{d}', 'peat', M, (0.12, 0.1, 0.32), e=0.022, g=(0, 0, 1))
+    return R, dict(length=L), None
+
+
+def dock(seed):
+    """A mooring stage: a square deck on piles where boardwalks meet and dugouts tie up, with bollards at the corners."""
+    rng = kit.stream(seed, 'dock')
+    R = kit.Rec()
+    W = 3.2
+    top = DECK - 0.04
+    for x in (-W / 2 + 0.2, 0, W / 2 - 0.2):
+        for y in (-W / 2 + 0.2, 0, W / 2 - 0.2):
+            cyl(R, f'pile:{x}:{y}', 'timber', (x + rng.uniform(-0.03, 0.03), y, -1.0), (x, y, top - 0.12), 0.08, 0.072, segs=8, e=0.012)
+    for y in (-W / 2 + 0.2, 0, W / 2 - 0.2):
+        box(R, f'bearer:{y}', 'timber', Matrix.Translation((0, y, top - 0.17)), (W, 0.14, 0.1), e=0.015, g=(1, 0, 0))
+    n = 13
+    for k in range(n):
+        x = -W / 2 + (k + 0.5) * W / n
+        box(R, f'tread:{k}', 'deck', Matrix.Translation((x, 0, top - 0.06)) @ Matrix.Rotation(rng.uniform(-0.01, 0.01), 4, 'Z'),
+            (W / n - 0.02, W + rng.uniform(-0.05, 0.05), 0.08), e=0.012, g=(0, 1, 0))
+    for sx in (-1, 1):
+        for sy in (-1, 1):
+            cyl(R, f'bollard:{sx}:{sy}', 'timber', (sx * (W / 2 - 0.12), sy * (W / 2 - 0.12), top - 0.1),
+                (sx * (W / 2 - 0.12), sy * (W / 2 - 0.12), top + 0.55), 0.07, 0.06, segs=8, e=0.012)
+            cyl(R, f'rope:{sx}:{sy}', 'rope', (sx * (W / 2 - 0.12) - 0.08, sy * (W / 2 - 0.12), top + 0.4),
+                (sx * (W / 2 - 0.12) + 0.08, sy * (W / 2 - 0.12), top + 0.4), 0.085, segs=7)
+    return R, dict(width=W, top=top), None
+
+
 ASSETS = {
     'boardwalk': dict(fn=lambda: boardwalk('ambermere', 'plain'), size=1024),
     'boardwalk_rail': dict(fn=lambda: boardwalk('ambermere', 'rail'), size=1024),
@@ -161,4 +222,6 @@ ASSETS = {
     'dugout': dict(fn=lambda: dugout('ambermere'), size=1024),
     'peat_bank': dict(fn=lambda: peat_bank('ambermere'), size=2048, cfg=dict(ground=0.2)),
     'eel_trap': dict(fn=lambda: eel_trap('ambermere'), size=512),
+    'peat_rack': dict(fn=lambda: peat_rack('ambermere'), size=1024),
+    'dock': dict(fn=lambda: dock('ambermere'), size=1024),
 }

@@ -26,7 +26,7 @@ os.makedirs(args.out, exist_ok=True)
 def reg():
     import house, flora, props
     A = {}
-    for v in ('small', 'medium', 'tall'):
+    for v in ('small', 'medium', 'tall', 'hall'):
         A['house_' + v] = dict(fn=lambda v=v: house.build(v, args.seed), size=4096, cfg=dict(soot=True, ground=0.0, house=True),
                                house=True, split=('shingle', 'lath', 'rafter', 'crown', 'cap', 'wallhead'))
     A.update(flora.ASSETS)
