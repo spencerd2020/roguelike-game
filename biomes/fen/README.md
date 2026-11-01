@@ -25,8 +25,8 @@ no stilt shacks, no frogfolk. The palette is its own (`blender/painter.py`, `PAL
   sedge tussocks, boulders.
 - `blender/props.py` boardwalk, lantern post, dugout, peat bank with drying footings, eel trap.
 - `blender/build.py` builds, bakes, paints and exports. `page/index.html` is the explorable page (three.js); its
-  `assets/` folder takes the glbs, the walker's `body.json` and `hair.json`, `houses.json` (each variant's `furniture`
-  list from the build's `house_*.json`) and the shared furniture glbs in `assets/furn/`.
+  `assets/` folder takes each glb as self-contained glTF JSON (`python blender/glb2json.py page/assets OUT/*.glb`), the walker's `body.json` and `hair.json`, `houses.json` (each variant's `furniture`
+  list from the build's `house_*.json`) and the shared furniture, converted the same way, in `assets/furn/`.
 
 ## Build
 
