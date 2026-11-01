@@ -1,0 +1,959 @@
+<title>Ambermere Fen</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+SC:wght@500&family=Karla:wght@400;500&family=JetBrains+Mono:wght@400&display=swap">
+<style>
+  /* One full-bleed 3D view of the fen; a field-notes panel floats top-left. Single look by choice: a slab of peat over the misty scene. */
+  :root {
+    --bg: #1e1611;          /* peat black */
+    --panel: rgba(30, 22, 17, .86);
+    --ink: #ebe4d2;         /* cotton grass */
+    --muted: #b3a68c;
+    --accent: #cfa247;      /* sphagnum gold */
+    --amber: #ee8a2c;       /* hearth */
+    --line: rgba(235, 228, 210, .16);
+    --display: "Cormorant SC", Georgia, serif;
+    --body: "Karla", system-ui, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    color-scheme: dark;
+  }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); overflow: hidden; }
+  #view { position: fixed; inset: 0; display: block; width: 100%; height: 100%; touch-action: none; }
+  .panel {
+    position: fixed;
+    top: calc(12px + env(safe-area-inset-top, 0px));
+    left: max(16px, env(safe-area-inset-left, 0px));
+    max-width: min(310px, calc(100% - 32px));
+    max-height: calc(100% - 24px); overflow-y: auto;
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px;
+    padding: 10px 12px; display: grid; gap: 10px; backdrop-filter: blur(6px);
+    box-sizing: border-box;
+  }
+  .head { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  h1 { margin: 0; font-family: var(--display); font-weight: 500; font-size: 1.35rem; letter-spacing: .04em; line-height: 1.1; text-wrap: balance; }
+  #pbody { display: grid; gap: 10px; }
+  .panel.closed #pbody { display: none; }
+  .sub { margin: 0; color: var(--muted); font-size: .82rem; line-height: 1.45; }
+  .swatches { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+  .sw { display: grid; gap: 3px; justify-items: center; font-size: .6rem; color: var(--muted); text-align: center; line-height: 1.1; }
+  .sw i { display: block; width: 100%; aspect-ratio: 1; border-radius: 3px; border: 1px solid var(--line); }
+  .stats { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; font-family: var(--mono); font-size: .72rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .stats b { color: var(--ink); font-weight: 400; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px; }
+  button { font: 500 .78rem var(--body); color: var(--ink); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 6px 10px; cursor: pointer; }
+  button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); }
+  button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .label { font-size: .68rem; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); margin: 0; }
+  .seedrow { display: flex; gap: 6px; margin: 0; }
+  .seedrow input { flex: 1; min-width: 0; font: 400 .8rem var(--mono); color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; }
+  .seedrow input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .hint { font-size: .72rem; color: var(--muted); margin: 0; line-height: 1.4; }
+  #status { font-family: var(--mono); font-size: .72rem; color: var(--amber); margin: 0; }
+  #caption { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); max-width: min(560px, calc(100% - 32px));
+    background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 8px 12px; font-size: .8rem; line-height: 1.4; color: var(--ink); box-sizing: border-box; }
+  #caption[hidden] { display: none; }
+  @media (max-width: 700px), (max-height: 560px) { .sub, .hint { display: none; } }
+</style>
+
+<canvas id="view" aria-label="A character walks a loop through an original fen: amber water, sphagnum hummocks, pale tallow trees and a village of round peat-block houses on wattle-ringed islands, joined by log boardwalks"></canvas>
+<div class="panel">
+  <div class="head"><h1>Ambermere Fen</h1><button id="b-menu" aria-expanded="true" aria-controls="pbody">Hide</button></div>
+  <div id="pbody">
+    <p class="sub">An original wetland biome. Tea-dark amber water, sphagnum hummocks in rust, ochre and lime, sedge and cotton-grass, bladder lilies, pitcher plants and sundews, and pale tallow trees carrying flat tiers of rust-gold needles. The fen folk cut peat from the raised bog and build round houses of peat blocks on wattle-ringed islands in the mere, joined by log boardwalks. Every model is generated in code and baked in Blender, and every texture is painted from that bake in the fen's own palette.</p>
+    <p class="label">The fen's palette</p>
+    <div class="swatches" aria-label="Fen palette">
+      <span class="sw"><i style="background:#7a4416"></i>amber water</span>
+      <span class="sw"><i style="background:#43301f"></i>peat</span>
+      <span class="sw"><i style="background:#91401f"></i>red moss</span>
+      <span class="sw"><i style="background:#cfa247"></i>gold moss</span>
+      <span class="sw"><i style="background:#a3994a"></i>sedge</span>
+      <span class="sw"><i style="background:#cbc5b7"></i>tallow bark</span>
+      <span class="sw"><i style="background:#2b4970"></i>woad</span>
+    </div>
+    <div class="stats">
+      <span>triangles</span><b id="s-tris">…</b>
+      <span>draw calls</span><b id="s-calls">…</b>
+      <span>frame rate</span><b id="s-fps">…</b>
+      <span>terrain</span><b>200 m, 0.5 m grid</b>
+    </div>
+    <p class="label">Village seed</p>
+    <form id="seed-form" class="seedrow">
+      <input id="seed" value="ambermere" aria-label="Village seed" spellcheck="false" autocomplete="off">
+      <button type="submit">Build</button>
+      <button type="button" id="b-roll">Roll</button>
+    </form>
+    <div class="stats">
+      <span>houses</span><b id="s-houses">…</b>
+      <span>boardwalk</span><b id="s-walk">…</b>
+      <span>generated in</span><b id="s-gen">…</b>
+    </div>
+    <div class="row"><button id="b-village">View the village</button><button id="b-inside">Look inside a house</button><button id="b-roofs" aria-pressed="false">Cut away roofs</button></div>
+    <p class="label">Light</p>
+    <div class="row">
+      <button id="t-day" aria-pressed="true">Misty morning</button>
+      <button id="t-dusk" aria-pressed="false">Dusk</button>
+    </div>
+    <div class="row">
+      <button id="b-follow" aria-pressed="true">Follow camera</button>
+      <button id="b-pause" aria-pressed="false">Pause</button>
+      <button id="b-mist" aria-pressed="true">Mist</button>
+      <button id="b-wire" aria-pressed="false">Wireframe</button>
+    </div>
+    <p class="hint">Drag to orbit, scroll or pinch to zoom. The walker goes into one of the houses on every loop. Look inside a house steps through them with the roof lifted off.</p>
+    <p id="status" role="status">Loading the fen…</p>
+  </div>
+</div>
+<div id="caption" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+'use strict';
+const status = document.getElementById('status');
+const caption = document.getElementById('caption');
+
+// ---------- noise ----------
+function hash2(i, j, s) {
+  let h = Math.imul(i | 0, 374761393) + Math.imul(j | 0, 668265263) + Math.imul(s | 0, 1442695041);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+}
+const fade = t => t * t * (3 - 2 * t);
+const mod = (a, n) => ((a % n) + n) % n;
+function vnoise(x, y, s, P) {
+  const xi = Math.floor(x), yi = Math.floor(y), fx = fade(x - xi), fy = fade(y - yi);
+  const w = P ? (a => mod(a, P)) : (a => a);
+  const a = hash2(w(xi), w(yi), s), b = hash2(w(xi + 1), w(yi), s), c = hash2(w(xi), w(yi + 1), s), d = hash2(w(xi + 1), w(yi + 1), s);
+  return (a + (b - a) * fx + (c - a) * fy + (a - b - c + d) * fx * fy) * 2 - 1;
+}
+function fbm(x, y, oct, s, P) {
+  let v = 0, amp = 0.5, f = 1, tot = 0;
+  for (let o = 0; o < oct; o++) { v += amp * vnoise(x * f, y * f, s + o * 17, P ? P * f : 0); tot += amp; amp *= 0.5; f *= 2; }
+  return v / tot;
+}
+function worley(u, v, N, s) {
+  const x = u * N, y = v * N, xi = Math.floor(x), yi = Math.floor(y);
+  let f1 = 9, f2 = 9, id = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const cx = mod(xi + i, N), cy = mod(yi + j, N);
+    const px = xi + i + hash2(cx, cy, s), py = yi + j + hash2(cx, cy, s + 7);
+    const d = Math.hypot(px - x, py - y);
+    if (d < f1) { f2 = f1; f1 = d; id = hash2(cx, cy, s + 3); } else if (d < f2) f2 = d;
+  }
+  return [f1, f2, id];
+}
+const smooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
+const lerp = (a, b, t) => a + (b - a) * t;
+
+// ---------- painted ground sheets: the same palette as the baked models, relief lit from above, ordered dither ----------
+const RAMP = {
+  sphR: ['#4e1d16', '#6a2a1e', '#91401f', '#b5762e', '#cfa247'],
+  sphG: ['#2f3a1c', '#4d5d27', '#677a35', '#a2ab48', '#cfa247'],
+  sedge:['#2f2e17', '#47461f', '#716f35', '#a3994a', '#cbc078'],
+  mud:  ['#140e0a', '#1e1611', '#2e2118', '#43301f', '#5a4128'],
+  cut:  ['#1e1611', '#2e2118', '#43301f', '#5a4128', '#75583a', '#8f7350'],
+  cot:  ['#9f927a', '#c9bda3', '#e3dbc7', '#f0ede4'],
+};
+const hex = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+for (const k in RAMP) RAMP[k] = RAMP[k].map(hex);
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(b => b / 16 - 0.5);
+function paint(fn, lightW = 0.45, N = 128) {
+  const H = new Float32Array(N * N), V = new Float32Array(N * N), R = new Array(N * N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const o = fn(x / N, y / N); H[y * N + x] = o.h; V[y * N + x] = o.v; R[y * N + x] = o.r; }
+  const c = document.createElement('canvas'); c.width = c.height = N;
+  const ctx = c.getContext('2d'), img = ctx.createImageData(N, N);
+  for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+    const i = y * N + x;
+    const dx = H[y * N + (x + 1) % N] - H[y * N + (x + N - 1) % N];
+    const dy = H[((y + 1) % N) * N + x] - H[((y + N - 1) % N) * N + x];
+    const light = Math.min(1, Math.max(0, 0.5 - (dx * 0.6 + dy * 0.8) * 3.2));
+    const ramp = R[i], t = Math.min(1, Math.max(0, V[i] * (1 - lightW) + light * lightW));
+    const k = Math.round(Math.min(ramp.length - 1, Math.max(0, t * (ramp.length - 1) + BAYER[(y & 3) * 4 + (x & 3)] * 0.75)));
+    img.data.set([...ramp[k], 255], i * 4);
+  }
+  ctx.putImageData(img, 0, 0);
+  const big = document.createElement('canvas'); big.width = big.height = N * 2;
+  const b = big.getContext('2d'); b.imageSmoothingEnabled = false; b.drawImage(c, 0, 0, N * 2, N * 2);
+  return big;
+}
+const SHEETS = {
+  // sphagnum lawn: cushions of capitula, red and gold patches, darker hollows between cushions
+  sphag: () => paint((u, v) => {
+    const [f1, f2, id] = worley(u, v, 22, 3);
+    const cap = smooth(0.42, 0.1, f1);
+    const patch = fbm(u * 3, v * 3, 3, 5, 3);
+    const r = patch > 0.12 ? RAMP.sphG : RAMP.sphR;
+    const hollow = smooth(0.06, 0.0, f2 - f1);
+    return { h: cap * 0.8 - hollow * 0.6 + id * 0.2, v: 0.35 + cap * 0.45 + id * 0.15 - hollow * 0.4, r };
+  }),
+  // sedge turf: blades leaning one way, gold tips over an olive thatch
+  sedge: () => paint((u, v) => {
+    const w = fbm(u * 4, v * 4, 3, 21, 4);
+    const blade = 0.5 + 0.5 * Math.sin(2 * Math.PI * (u * 24 + v * 6 + w * 2));
+    const g = fbm(u * 32, v * 32, 2, 23, 32);
+    const tuft = smooth(0.0, 0.5, fbm(u * 6, v * 6, 3, 25, 6));
+    return { h: blade * 0.5 + g * 0.3 + tuft * 0.4, v: 0.3 + blade * 0.3 + tuft * 0.3 + g * 0.12, r: RAMP.sedge };
+  }, 0.4),
+  // wet peat mud: near black, with a glossy skim and drift of red moss bits
+  mud: () => paint((u, v) => {
+    const n = fbm(u * 5, v * 5, 4, 31, 5);
+    const skim = smooth(0.25, 0.45, fbm(u * 3, v * 3, 3, 33, 3));
+    const bits = smooth(0.62, 0.7, fbm(u * 28, v * 28, 2, 35, 28));
+    return { h: n * 0.4 - skim * 0.3, v: 0.35 + n * 0.25 + skim * 0.3 + bits * 0.4, r: bits > 0.5 ? RAMP.sphR : RAMP.mud };
+  }, 0.35),
+  // cut peat and trodden track: brown strata, spade marks, fibre
+  cut: () => paint((u, v) => {
+    const strata = 0.5 + 0.5 * Math.sin(2 * Math.PI * (v * 7 + fbm(u * 3, v * 3, 2, 41, 3) * 0.6));
+    const spade = smooth(0.04, 0.0, Math.abs(((u * 6 + 0.2 * fbm(u, v * 4, 2, 43, 4)) % 1) - 0.5) - 0.46);
+    const fib = fbm(u * 40, v * 6, 2, 45, 40);
+    return { h: strata * 0.4 + fib * 0.3 - spade * 0.5, v: 0.3 + strata * 0.35 + fib * 0.15 - spade * 0.3, r: RAMP.cut };
+  }, 0.45),
+};
+function tex(canvas, rep) {
+  const t = new THREE.CanvasTexture(canvas);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping;
+  t.encoding = THREE.sRGBEncoding;
+  t.anisotropy = 8;
+  t.magFilter = THREE.NearestFilter;
+  if (rep) t.repeat.set(rep[0], rep[1]);
+  return t;
+}
+const T = {};
+for (const k in SHEETS) T[k] = tex(SHEETS[k]());
+
+// ---------- renderer, scene, sky ----------
+const canvas = document.getElementById('view');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
+
+const scene = new THREE.Scene();
+scene.fog = new THREE.Fog(0xd9d6c6, 25, 170);
+const camera = new THREE.PerspectiveCamera(48, 1, 0.1, 900);
+camera.position.set(-44, 4, 18);
+const controls = new THREE.OrbitControls(camera, canvas);
+controls.enableDamping = true;
+controls.maxPolarAngle = Math.PI * 0.495;
+controls.minDistance = 1.2;
+controls.maxDistance = 130;
+controls.target.set(-40, 1, 10);
+
+const skyU = { uZen: { value: new THREE.Color() }, uHor: { value: new THREE.Color() }, uSun: { value: new THREE.Vector3() }, uSunCol: { value: new THREE.Color() } };
+const sky = new THREE.Mesh(new THREE.SphereGeometry(600, 32, 16), new THREE.ShaderMaterial({
+  side: THREE.BackSide, depthWrite: false, fog: false, uniforms: skyU,
+  vertexShader: 'varying vec3 vD; void main(){ vD = normalize(position); gl_Position = projectionMatrix * modelViewMatrix * vec4(position,1.); }',
+  fragmentShader: `uniform vec3 uZen, uHor, uSunCol, uSun; varying vec3 vD;
+    void main(){ float h = max(vD.y, 0.); vec3 c = mix(uHor, uZen, pow(smoothstep(0., .6, h), .75));
+      float s = max(dot(normalize(vD), uSun), 0.); c += uSunCol * (pow(s, 900.) * 3. + pow(s, 10.) * .22);
+      c = mix(c, uHor * .92, smoothstep(.0, -.2, vD.y)); gl_FragColor = vec4(c, 1.); }`,
+}));
+scene.add(sky);
+const hemi = new THREE.HemisphereLight(0xd8e0e4, 0x6b5638, 0.7);
+scene.add(hemi);
+const sun = new THREE.DirectionalLight(0xffe9c8, 1.2);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.bias = -0.0004;
+sun.shadow.normalBias = 0.03;
+Object.assign(sun.shadow.camera, { left: -28, right: 28, top: 28, bottom: -28, near: 1, far: 140 });
+scene.add(sun, sun.target);
+
+// ---------- the lie of the land ----------
+// The Mere sits in the middle; the village stands in its shallows. A raised bog swells up in the east, cut back in
+// terraces where the peat is dug. A firm trackway runs round the north through the tallow carr back to the west shore.
+const MERE = { x: -2, z: 0 };
+const mereEdge = a => 31 + 5 * Math.sin(a * 2 + 1) + 3.5 * Math.sin(a * 5 + 2) + 2 * Math.sin(a * 9);
+const SPINE = [[-46, 9], [-33, 6], [-21, 3.5], [-9, -0.5], [3, -2.5], [15, 0.5], [26, -2.5], [36, -5], [44.5, -6.5]];
+const TRACK = [[44, -15], [46, -24], [38, -32], [24, -36], [8, -38], [-8, -40], [-24, -37], [-38, -30], [-48, -18], [-52, -4], [-52, 6]];
+const BANK = { x: 49.5, z: -9, yaw: Math.PI / 2 };    // the cut bank faces west, its terraces step up to the east
+function distPoly(x, z, poly) {
+  let m = 1e9;
+  for (let i = 0; i < poly.length - 1; i++) {
+    const [ax, az] = poly[i], [bx, bz] = poly[i + 1], vx = bx - ax, vz = bz - az;
+    const t = Math.max(0, Math.min(1, ((x - ax) * vx + (z - az) * vz) / (vx * vx + vz * vz)));
+    m = Math.min(m, Math.hypot(x - ax - vx * t, z - az - vz * t));
+  }
+  return m;
+}
+function mereDepth(x, z) {   // 0 on the shore, 1 well out in the mere
+  const dx = x - MERE.x, dz = z - MERE.z, r = Math.hypot(dx, dz), a = Math.atan2(dz, dx);
+  return smooth(mereEdge(a) + 2, mereEdge(a) - 9, r + 3 * fbm(x * 0.06, z * 0.06, 2, 91));
+}
+function bogRise(x, z) {     // the raised bog to the east, its edge wavy, cut straight where the bank is
+  const edge = 47 + 3 * fbm(z * 0.05, 3, 2, 93);
+  const cutZone = Math.abs(z - BANK.z) < 3.4 ? 1 : 0;
+  const e2 = cutZone ? 47.4 : edge;
+  return smooth(e2 - 1.5, e2 + 7, x) * (1 - cutZone * 0.0);
+}
+function baseHeight(x, z) {
+  const r = Math.hypot(x, z);
+  let h = 0.16 + 0.22 * fbm(x * 0.07, z * 0.07, 4, 3) + 0.12 * fbm(x * 0.25, z * 0.25, 2, 5);     // hummock and hollow
+  const pool = smooth(-0.18, -0.38, fbm(x * 0.045 + 4, z * 0.045, 3, 7));                          // bog pools
+  h = lerp(h, -0.45 - 0.2 * fbm(x * 0.1, z * 0.1, 2, 9), pool);
+  const md = mereDepth(x, z);
+  h = lerp(h, -0.7 - 1.0 * smooth(0.4, 1, md) - 0.25 * fbm(x * 0.05, z * 0.05, 2, 11), md);
+  h += bogRise(x, z) * (1.0 + 0.25 * fbm(x * 0.03, z * 0.03, 3, 13));
+  h += smooth(70, 98, r) * (5 + 6 * fbm(x * 0.02 + 5, z * 0.02, 4, 15));                            // low hills close the view
+  const dt = distPoly(x, z, TRACK);                                                                  // the trackway: a firm ridge
+  if (dt < 3.2) h = lerp(h, Math.max(h, 0.32 + 0.05 * fbm(x * 0.3, z * 0.3, 2, 17)), smooth(3.2, 1.2, dt));
+  const ds = Math.hypot(x - SPINE[0][0], z - SPINE[0][1]);                                           // the west landing
+  if (ds < 5) h = lerp(h, Math.max(h, 0.3), smooth(5, 2, ds));
+  return h;
+}
+function height(x, z) {
+  let h = baseHeight(x, z);
+  // the bank's footprint: a flat floor in front of the cut, the terraces come from the model itself
+  const bx = x - BANK.x, bz = z - BANK.z;
+  if (Math.abs(bz) < 3.6 && bx > -4.5 && bx < 4.0) h = lerp(h, 0.2, smooth(4.0, 3.0, Math.abs(bz)) * smooth(-4.5, -3.2, bx));
+  return h;
+}
+
+// ---------- terrain mesh with splat layers ----------
+const SIZE = 200, SEG = 400, STEP = SIZE / SEG, NV = SEG + 1;
+const HGRID = new Float32Array(NV * NV);
+for (let j = 0; j < NV; j++) for (let i = 0; i < NV; i++) HGRID[j * NV + i] = height(-SIZE / 2 + i * STEP, -SIZE / 2 + j * STEP);
+function groundAt(x, z) {
+  const gx = (x + SIZE / 2) / STEP, gz = (z + SIZE / 2) / STEP;
+  const i = Math.max(0, Math.min(SEG - 1, Math.floor(gx))), j = Math.max(0, Math.min(SEG - 1, Math.floor(gz)));
+  const fx = gx - i, fz = gz - j;
+  const a = HGRID[j * NV + i], b = HGRID[j * NV + i + 1], c = HGRID[(j + 1) * NV + i], d = HGRID[(j + 1) * NV + i + 1];
+  return fx + fz < 1 ? a + (b - a) * fx + (c - a) * fz : d + (c - d) * (1 - fx) + (b - d) * (1 - fz);
+}
+const footMin = (x, z, r) => Math.min(groundAt(x, z), groundAt(x + r, z), groundAt(x - r, z), groundAt(x, z + r), groundAt(x, z - r));
+const tgeo = new THREE.PlaneGeometry(SIZE, SIZE, SEG, SEG);
+tgeo.rotateX(-Math.PI / 2);
+{
+  const pos = tgeo.attributes.position, n = pos.count;
+  const splat = new Float32Array(n * 4), col = new Float32Array(n * 3);
+  for (let v = 0; v < n; v++) {
+    const x = pos.getX(v), z = pos.getZ(v);
+    const i = Math.round((x + SIZE / 2) / STEP), j = Math.round((z + SIZE / 2) / STEP);
+    pos.setY(v, HGRID[j * NV + i]);
+  }
+  tgeo.computeVertexNormals();
+  const nrm = tgeo.attributes.normal;
+  for (let v = 0; v < n; v++) {
+    const x = pos.getX(v), z = pos.getZ(v), y = pos.getY(v);
+    const i = Math.round((x + SIZE / 2) / STEP), j = Math.round((z + SIZE / 2) / STEP);
+    const H = (a, b) => HGRID[Math.max(0, Math.min(SEG, b)) * NV + Math.max(0, Math.min(SEG, a))];
+    const lap = (H(i + 2, j) + H(i - 2, j) + H(i, j + 2) + H(i, j - 2)) / 4 - y;
+    const slope = 1 - nrm.getY(v), r = Math.hypot(x, z);
+    const wet = smooth(0.14, -0.02, y);
+    let sph = smooth(0.05, 0.3, y) * (0.7 + 0.6 * smooth(-0.2, 0.3, fbm(x * 0.09, z * 0.09, 3, 51))) * (1 - smooth(62, 80, r));
+    let sed = smooth(0.2, 0.55, y) * 0.6 + smooth(0.0, 0.4, fbm(x * 0.05 + 7, z * 0.05, 3, 53)) * smooth(0.05, 0.25, y) + smooth(60, 80, r) * 1.5 + bogRise(x, z) * 0.5;
+    let mud = wet * 1.6 + 0.08;
+    let cut = smooth(0.18, 0.4, slope) * 1.4 + smooth(1.6, 0.6, distPoly(x, z, TRACK)) * 1.2;
+    const bx = x - BANK.x, bz = z - BANK.z;
+    if (Math.abs(bz) < 3.8 && bx > -5 && bx < 4) cut += 1.5 * smooth(-5, -3, bx);
+    splat.set([sph, sed, mud, cut], v * 4);
+    const ao = Math.min(1.08, Math.max(0.6, 1 - lap * 0.9));
+    const tint = 0.05 * fbm(x * 0.05, z * 0.05, 2, 23);
+    col.set([ao * (1 + tint), ao, ao * (1 - tint)], v * 3);
+  }
+  tgeo.setAttribute('splat', new THREE.BufferAttribute(splat, 4));
+  tgeo.setAttribute('color', new THREE.BufferAttribute(col, 3));
+}
+const groundMat = new THREE.MeshLambertMaterial({ map: T.sphag, vertexColors: true });
+groundMat.onBeforeCompile = sh => {
+  Object.assign(sh.uniforms, { tSed: { value: T.sedge }, tMud: { value: T.mud }, tCut: { value: T.cut }, uRep: { value: SIZE / 4 } });
+  sh.vertexShader = 'attribute vec4 splat; varying vec4 vSplat;\n' + sh.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\n vSplat = splat;');
+  sh.fragmentShader = 'uniform sampler2D tSed, tMud, tCut; uniform float uRep; varying vec4 vSplat;\n' + sh.fragmentShader.replace('#include <map_fragment>', `
+    vec2 tuv = vUv * uRep;
+    vec4 a = mapTexelToLinear(texture2D(map, tuv)) * mix(.9, 1.08, mapTexelToLinear(texture2D(map, tuv * .21 + .37)).g);
+    vec4 b = mapTexelToLinear(texture2D(tSed, tuv * 1.1));
+    vec4 c = mapTexelToLinear(texture2D(tMud, tuv * .9));
+    vec4 d = mapTexelToLinear(texture2D(tCut, tuv * .8));
+    vec4 w = vSplat * vec4(.6 + a.r, .6 + b.g, .6 + (1. - c.r), .6 + d.r);
+    w = pow(max(w, 0.), vec4(3.)); w /= max(dot(w, vec4(1.)), 1e-4);
+    diffuseColor *= a * w.x + b * w.y + c * w.z + d * w.w;`);
+};
+const terrain = new THREE.Mesh(tgeo, groundMat);
+terrain.receiveShadow = true;
+scene.add(terrain);
+
+// ---------- amber water ----------
+const timeU = { value: 0 };
+const waterU = {
+  uTime: timeU, uDeep: { value: new THREE.Color(0x1d0f07) }, uShallow: { value: new THREE.Color(0x8a4c18) },
+  uZen: skyU.uZen, uHor: skyU.uHor, uSun: skyU.uSun, uSunCol: skyU.uSunCol,
+  uFogCol: { value: new THREE.Color() }, uFogNear: { value: 25 }, uFogFar: { value: 170 }, uGlint: { value: 1 },
+};
+{
+  const WS = 220, WN = 220;
+  const g = new THREE.PlaneGeometry(WS, WS, WN, WN);
+  g.rotateX(-Math.PI / 2);
+  const p = g.attributes.position, dep = new Float32Array(p.count);
+  for (let i = 0; i < p.count; i++) dep[i] = Math.max(0, -height(p.getX(i), p.getZ(i)));
+  g.setAttribute('depth', new THREE.BufferAttribute(dep, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: waterU, transparent: true, depthWrite: false,
+    vertexShader: `attribute float depth; varying float vDepth; varying vec3 vW;
+      void main(){ vDepth = depth; vec4 w = modelMatrix * vec4(position, 1.); vW = w.xyz; gl_Position = projectionMatrix * viewMatrix * w; }`,
+    fragmentShader: `uniform float uTime, uFogNear, uFogFar, uGlint; uniform vec3 uDeep, uShallow, uZen, uHor, uSun, uSunCol, uFogCol;
+      varying float vDepth; varying vec3 vW;
+      float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+      float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.-2.*f); return mix(mix(h(i), h(i+vec2(1,0)), f.x), mix(h(i+vec2(0,1)), h(i+vec2(1,1)), f.x), f.y); }
+      float wave(vec2 p){ return n(p * .55 + vec2(uTime * .05, uTime * .03)) * .6 + n(p * 1.7 - vec2(uTime * .09, -uTime * .06)) * .3 + n(p * 5. + uTime * .2) * .1; }
+      void main(){
+        vec2 e = vec2(.08, 0.);
+        float c0 = wave(vW.xz);
+        vec3 N = normalize(vec3((c0 - wave(vW.xz + e.xy)) * .9, 1., (c0 - wave(vW.xz + e.yx)) * .9));
+        vec3 V = normalize(cameraPosition - vW);
+        float fres = .04 + .9 * pow(1. - max(dot(V, N), 0.), 5.);
+        vec3 R = reflect(-V, N);
+        vec3 refl = mix(uHor, uZen, pow(smoothstep(0., .6, max(R.y, 0.)), .75));
+        float t = smoothstep(.0, 1.1, vDepth);
+        vec3 body = mix(uShallow, uDeep, t);
+        vec3 col = mix(body, refl, fres);
+        float sp = pow(max(dot(R, uSun), 0.), 380.) * 2.6 * uGlint;
+        col += uSunCol * sp;
+        float alpha = mix(.55, .97, smoothstep(0., .5, vDepth)) + fres * .3;
+        float d = length(cameraPosition - vW);
+        col = mix(col, uFogCol, smoothstep(uFogNear, uFogFar, d));
+        gl_FragColor = vec4(col, clamp(alpha, 0., 1.));
+      }`,
+  });
+  const water = new THREE.Mesh(g, mat);
+  water.position.y = 0.0;
+  water.renderOrder = 2;
+  scene.add(water);
+}
+
+// ---------- assets baked in Blender ----------
+const loader = new THREE.GLTFLoader();
+const load = url => new Promise((res, rej) => loader.load(url, res, undefined, rej));
+const ASSET_NAMES = ['house_small', 'house_medium', 'house_tall', 'tallow_a', 'tallow_b', 'tallow_c', 'snag', 'lilies', 'pitchers', 'sundews',
+  'tussock', 'boulder_a', 'boulder_b', 'boardwalk', 'boardwalk_rail', 'lantern_post', 'dugout', 'peat_bank', 'eel_trap'];
+const GLOW = [];          // emissive materials: embers, lamp glass
+const swayU = { uTime: timeU };
+function convert(root) {
+  root.traverse(n => {
+    if (!n.isMesh) return;
+    // the glbs ship without normals (smaller): unshare the vertices and every face gets its own flat normal
+    n.geometry = n.geometry.toNonIndexed();
+    n.geometry.computeVertexNormals();
+    const old = n.material, map = old.map;
+    if (map) { map.magFilter = THREE.NearestFilter; map.minFilter = THREE.LinearMipmapLinearFilter; map.anisotropy = 8; map.encoding = THREE.sRGBEncoding; map.needsUpdate = true; }
+    let m;
+    if (/_glow$/.test(old.name)) { m = new THREE.MeshBasicMaterial({ map, color: 0xffffff }); GLOW.push(m); }
+    else if (/cards/.test(old.name) || /cards/.test(n.name)) {
+      m = new THREE.MeshLambertMaterial({ map, alphaTest: 0.5, side: THREE.DoubleSide });
+      m.onBeforeCompile = sh => {
+        sh.uniforms.uTime = timeU;
+        sh.vertexShader = 'uniform float uTime;\n' + sh.vertexShader.replace('#include <begin_vertex>', `#include <begin_vertex>
+          #ifdef USE_INSTANCING
+            float ph = instanceMatrix[3].x * .31 + instanceMatrix[3].z * .53;
+          #else
+            float ph = 0.;
+          #endif
+          float hh = max(position.y - 4., 0.) * .1;
+          transformed.x += sin(uTime * .9 + ph + position.y * .4) * .12 * hh;
+          transformed.z += cos(uTime * .7 + ph * 1.3) * .09 * hh;`);
+      };
+    } else m = new THREE.MeshLambertMaterial({ map });
+    m.name = old.name;
+    n.material = m;
+    n.castShadow = !/_glow$/.test(old.name);
+    n.receiveShadow = true;
+  });
+  return root;
+}
+// pull every mesh of an asset into world-space geometry pieces, so instancing can draw them all
+function partsOf(gltf) {
+  const out = [];
+  gltf.scene.updateMatrixWorld(true);
+  gltf.scene.traverse(n => {
+    if (!n.isMesh) return;
+    const g = n.geometry.clone();
+    g.applyMatrix4(n.matrixWorld);
+    out.push({ geo: g, mat: n.material, name: n.name });
+  });
+  return out;
+}
+const INST = [];   // instanced batches that the village rebuild clears
+function instance(A, mats, { shadow = true, group = scene, keep = INST } = {}) {
+  const list = [];
+  for (const p of A) {
+    if (!mats.length) continue;
+    const im = new THREE.InstancedMesh(p.geo, p.mat, mats.length);
+    mats.forEach((m, k) => im.setMatrixAt(k, m));
+    im.castShadow = shadow && !/_glow$/.test(p.mat.name);
+    im.receiveShadow = true;
+    group.add(im);
+    keep.push(im);
+    list.push(im);
+  }
+  return list;
+}
+const m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), e4 = new THREE.Euler(), vP = new THREE.Vector3(), vS = new THREE.Vector3();
+function compose(x, y, z, rx, ry, rz, s, sy, sz) { e4.set(rx, ry, rz); q4.setFromEuler(e4); vP.set(x, y, z); vS.set(s, sy ?? s, sz ?? s); return new THREE.Matrix4().compose(vP, q4, vS); }
+
+const ASSETS = {};
+Promise.all(ASSET_NAMES.map(n => load('assets/' + n + '.glb').then(g => { convert(g.scene); ASSETS[n] = g; }))).then(() => {
+  buildStatic();
+  buildVillage(document.getElementById('seed').value);
+  startWalker();
+}).catch(err => { status.textContent = 'The fen failed to load. Reload the page to try again.'; console.error(err); });
+
+// ---------- seeded streams ----------
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
+function stream(seedStr, stage) {
+  let a = hashStr(seedStr + '/' + stage);
+  return () => { a = (a + 0x6D2B79F5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+}
+
+// ---------- the village (rebuilt from the seed) ----------
+const DECK_WALK = 0.47, HOUSE_DECK = 0.58;
+const HOUSE = { small: { Rw: 2.3, Ro: 2.78, Rd: 4.03 }, medium: { Rw: 2.85, Ro: 3.35, Rd: 4.6 }, tall: { Rw: 3.35, Ro: 3.87, Rd: 5.12 } };
+let village = { houses: [], walks: [], group: null, lights: [] };
+function spineAt(t) {   // t in [0,1] along the spine by length
+  const L = []; let tot = 0;
+  for (let i = 0; i < SPINE.length - 1; i++) { const l = Math.hypot(SPINE[i + 1][0] - SPINE[i][0], SPINE[i + 1][1] - SPINE[i][1]); L.push(l); tot += l; }
+  let d = t * tot;
+  for (let i = 0; i < L.length; i++) {
+    if (d <= L[i] || i === L.length - 1) { const f = Math.min(1, d / L[i]); const [ax, az] = SPINE[i], [bx, bz] = SPINE[i + 1]; return { x: ax + (bx - ax) * f, z: az + (bz - az) * f, dx: (bx - ax) / L[i], dz: (bz - az) / L[i], len: tot }; }
+    d -= L[i];
+  }
+}
+function lay(walks, ax, az, bx, bz, kind) {   // chain 4 m boardwalk segments from a to b
+  const len = Math.hypot(bx - ax, bz - az), n = Math.max(1, Math.round(len / 4)), sx = len / (n * 4);
+  const yaw = Math.atan2(-(bz - az), bx - ax);
+  for (let i = 0; i < n; i++) {
+    const t = (i + 0.5) / n;
+    walks.push({ m: compose(ax + (bx - ax) * t, 0, az + (bz - az) * t, 0, yaw, 0, sx * 1.002, 1, 1), kind, a: [ax, az], b: [bx, bz] });
+  }
+  return { a: [ax, az], b: [bx, bz] };
+}
+const BW = [];   // boardwalk centre lines for the walker and the scatter
+const distWalks = (x, z) => { let m = 1e9; for (const w of BW) m = Math.min(m, distPoly(x, z, [w.a, w.b])); return m; };
+function buildVillage(seedStr) {
+  const t0 = performance.now();
+  if (village.group) { scene.remove(village.group); }
+  INST.length = 0;
+  const group = new THREE.Group();
+  const L = stream(seedStr, 'layout');
+  const houses = [];
+  BW.length = 0;
+  const walks = [];
+  // spine
+  for (let i = 0; i < SPINE.length - 1; i++) BW.push(lay(walks, ...SPINE[i], ...SPINE[i + 1], (i % 3 === 1) ? 'rail' : 'plain'));
+  // lots along the spine, alternating sides, rank by the mere's depth; the first tall house gets the walk-in
+  const tot = spineAt(0).len;
+  let s = 13 + L() * 4, side = L() < 0.5 ? -1 : 1, tallMade = false;
+  while (s < tot - 12) {
+    const p = spineAt(s / tot);
+    const nx = -p.dz * side, nz = p.dx * side;
+    const off = 8.5 + L() * 4;
+    const x = p.x + nx * off, z = p.z + nz * off;
+    const depth = mereDepth(x, z);
+    let variant = L() < 0.34 ? 'small' : (L() < 0.6 ? 'medium' : 'tall');
+    if (!tallMade && s / tot > 0.25) variant = 'tall';
+    const H = HOUSE[variant];
+    const ok = depth > 0.35 && houses.every(h => Math.hypot(h.x - x, h.z - z) > h.H.Rd + H.Rd + 3);
+    if (ok) {
+      // the door faces the spine; a spur runs from the spine to the landing
+      const yaw = Math.atan2(-nx, -nz) + (L() - 0.5) * 0.3;
+      const doorDir = [Math.sin(yaw), Math.cos(yaw)];
+      const land = [x + doorDir[0] * (H.Rd + 0.75), z + doorDir[1] * (H.Rd + 0.75)];
+      const foot = [p.x + nx * 0.5, p.z + nz * 0.5];
+      const h = { x, z, yaw, variant, H, land, walkIn: false, roofs: [] };
+      if (variant === 'tall' && !tallMade) { h.walkIn = true; tallMade = true; h.spineT = s / tot; }
+      houses.push(h);
+      BW.push(lay(walks, foot[0], foot[1], land[0], land[1], 'plain'));
+      side = -side;
+    }
+    s += 12 + L() * 6;
+  }
+  // houses: each its own clone, so its roof can come off on its own
+  for (const h of houses) {
+    const src = ASSETS['house_' + h.variant].scene;
+    const obj = src.clone();
+    obj.position.set(h.x, 0, h.z);
+    obj.rotation.y = h.yaw;
+    obj.traverse(n => { if (n.isMesh && /_roof/.test(n.name)) h.roofs.push(n); });
+    group.add(obj);
+    h.obj = obj;
+    obj.updateMatrixWorld(true);
+    const hb = h.variant === 'tall' ? [0, 0.55] : [0, 0];   // hearth in Blender (x, y); the tall house's sits forward of the loft
+    h.hearth = new THREE.Vector3(hb[0], HOUSE_DECK + 0.45, -hb[1]).applyMatrix4(obj.matrixWorld);
+    h.hearth.y = HOUSE_DECK + 0.45;
+  }
+  // boardwalk instances
+  const plain = walks.filter(w => w.kind === 'plain').map(w => w.m), rail = walks.filter(w => w.kind === 'rail').map(w => w.m);
+  instance(partsOf(ASSETS.boardwalk), plain, { group });
+  instance(partsOf(ASSETS.boardwalk_rail), rail, { group });
+  // lantern posts beside the spine, dugouts at some landings, eel traps in the shallows
+  const LP = [], DG = [], ET = [];
+  const S2 = stream(seedStr, 'dressing');
+  for (let k = 0; k < 7; k++) {
+    const p = spineAt(0.06 + k * 0.145 + S2() * 0.03), sd = k % 2 ? 1 : -1;
+    const x = p.x - p.dz * sd * 0.95, z = p.z + p.dx * sd * 0.95;
+    LP.push(compose(x, 0, z, 0, Math.atan2(-p.dz * sd, -p.dx * sd) + Math.PI, 0, 1));
+  }
+  for (const h of houses) {
+    if (S2() < 0.6) {
+      const a = h.yaw + Math.PI * (0.35 + S2() * 0.3) * (S2() < 0.5 ? -1 : 1), r = h.H.Rd + 1.1;
+      DG.push(compose(h.x + Math.sin(a) * r, 0.0, h.z + Math.cos(a) * r, 0, a, 0, 1));
+    }
+    for (let k = 0; k < 2; k++) {
+      const a = S2() * 6.28, r = h.H.Rd + 2 + S2() * 3, x = h.x + Math.sin(a) * r, z = h.z + Math.cos(a) * r;
+      if (distWalks(x, z) > 2) ET.push(compose(x, -0.12, z, 0, S2() * 6.28, 0, 1));
+    }
+  }
+  instance(partsOf(ASSETS.lantern_post), LP, { group });
+  instance(partsOf(ASSETS.dugout), DG, { group });
+  instance(partsOf(ASSETS.eel_trap), ET, { group, shadow: false });
+  scene.add(group);
+  village = { houses, group, walks };
+  LANTERNS.length = 0;
+  for (const m of LP) LANTERNS.push(new THREE.Vector3(0.56, 2.08, 0).applyMatrix4(m));
+  for (const h of houses) {   // the lantern by each door (Blender: P(Ro + 0.55, door + 0.42) + (0.4, -0.05), 1.88 above the deck)
+    const a = -Math.PI / 2 + 0.42, bx = (h.H.Ro + 0.55) * Math.cos(a) + 0.4, by = (h.H.Ro + 0.55) * Math.sin(a) - 0.05;
+    LANTERNS.push(new THREE.Vector3(bx, HOUSE_DECK + 1.88, -by).applyMatrix4(h.obj.matrixWorld));
+  }
+  rebuildScatter(seedStr);
+  makeRoute();
+  setRoofs(roofsCut);
+  document.getElementById('s-houses').textContent = houses.length + ' (' + ['small', 'medium', 'tall'].map(v => houses.filter(h => h.variant === v).length + ' ' + v).join(', ') + ')';
+  document.getElementById('s-walk').textContent = walks.length + ' segments, ' + Math.round(walks.length * 4) + ' m';
+  document.getElementById('s-gen').textContent = Math.round(performance.now() - t0) + ' ms';
+  try { history.replaceState(null, '', '#' + encodeURIComponent(seedStr)); } catch (e) { /* sandboxed */ }
+}
+const LANTERNS = [];
+
+// ---------- wild things: placed once, cleared round the village each rebuild ----------
+let SCATTER = null;
+function clearOfVillage(x, z, r) {
+  if (distWalks(x, z) < r + 1.0) return false;
+  for (const h of village.houses) if (Math.hypot(x - h.x, z - h.z) < h.H.Rd + r + 1.2) return false;
+  return true;
+}
+function rebuildScatter(seedStr) {
+  if (SCATTER) { SCATTER.forEach(m => { scene.remove(m); }); }
+  SCATTER = [];
+  const R = stream('ambermere-wild', 'scatter');     // the land's own seed: the wilds stay put, only the village changes
+  const rr = (a, b) => a + (b - a) * R();
+  const lists = { tallow_a: [], tallow_b: [], tallow_c: [], snag: [], lilies: [], pitchers: [], sundews: [], tussock: [], boulder_a: [], boulder_b: [] };
+  const route = (x, z) => distPoly(x, z, TRACK);
+  // tallow carr on the firm ground of the north and west, a few standing out in the shallows
+  for (let k = 0; k < 900 && lists.tallow_a.length + lists.tallow_b.length + lists.tallow_c.length < 70; k++) {
+    const x = rr(-80, 70), z = rr(-75, 75), g = groundAt(x, z), md = mereDepth(x, z);
+    const carr = fbm(x * 0.03 + 3, z * 0.03, 3, 61) + (z < -20 ? 0.25 : 0) + (x < -40 ? 0.2 : 0);
+    if (carr < 0.12 || md > 0.55 || g > 3.5 || route(x, z) < 3.5 || !clearOfVillage(x, z, 3) || Math.hypot(x - BANK.x, z - BANK.z) < 8) continue;
+    const v = ['tallow_a', 'tallow_b', 'tallow_c'][Math.floor(R() * 3)];
+    lists[v].push(compose(x, footMin(x, z, 0.5) - 0.1, z, rr(-0.03, 0.03), rr(0, 6.28), rr(-0.03, 0.03), rr(0.85, 1.15)));
+  }
+  for (let k = 0; k < 400 && lists.snag.length < 16; k++) {
+    const x = rr(-60, 60), z = rr(-55, 55), md = mereDepth(x, z);
+    if (md < 0.05 || md > 0.7 || !clearOfVillage(x, z, 2)) continue;
+    lists.snag.push(compose(x, Math.min(0, footMin(x, z, 0.4)) - 0.2, z, rr(-0.06, 0.06), rr(0, 6.28), rr(-0.06, 0.06), rr(0.8, 1.2)));
+  }
+  for (let k = 0; k < 3000 && lists.lilies.length < 120; k++) {
+    const x = rr(-55, 55), z = rr(-50, 50), d = -groundAt(x, z);
+    if (d < 0.25 || d > 1.5 || fbm(x * 0.07, z * 0.07, 2, 71) < 0.0 || !clearOfVillage(x, z, 2.6)) continue;
+    lists.lilies.push(compose(x, 0.005, z, 0, rr(0, 6.28), 0, rr(0.7, 1.15), 1));
+  }
+  for (let k = 0; k < 3000 && lists.tussock.length < 420; k++) {
+    const x = rr(-70, 70), z = rr(-70, 70), g = groundAt(x, z);
+    if (g < -0.12 || g > 1.6 || route(x, z) < 1.2 || !clearOfVillage(x, z, 0.6) || Math.hypot(x - BANK.x, z - BANK.z) < 6) continue;
+    const shore = smooth(0.35, 0.0, g) + smooth(-0.1, 0.4, fbm(x * 0.12, z * 0.12, 2, 73));
+    if (R() > shore * 0.9) continue;
+    lists.tussock.push(compose(x, g - 0.12, z, rr(-0.08, 0.08), rr(0, 6.28), rr(-0.08, 0.08), rr(0.7, 1.3)));
+  }
+  for (let k = 0; k < 2000 && lists.sundews.length < 50; k++) {
+    const x = rr(-60, 60), z = rr(-60, 60), g = groundAt(x, z);
+    if (g < 0.02 || g > 0.6 || route(x, z) < 2 || !clearOfVillage(x, z, 1.5)) continue;
+    lists.sundews.push(compose(x, footMin(x, z, 1) - 0.12, z, 0, rr(0, 6.28), 0, rr(0.8, 1.3), rr(0.7, 1.1), rr(0.8, 1.3)));
+  }
+  for (let k = 0; k < 2000 && lists.pitchers.length < 45; k++) {
+    const x = rr(-60, 60), z = rr(-60, 60), g = groundAt(x, z);
+    if (g < -0.05 || g > 0.45 || route(x, z) < 1.8 || !clearOfVillage(x, z, 1.2)) continue;
+    lists.pitchers.push(compose(x, footMin(x, z, 0.8) - 0.18, z, 0, rr(0, 6.28), 0, rr(0.8, 1.25)));
+  }
+  for (let k = 0; k < 600 && lists.boulder_a.length + lists.boulder_b.length < 26; k++) {
+    const x = rr(-75, 75), z = rr(-75, 75), g = groundAt(x, z);
+    if (g < 0.0 || route(x, z) < 2.5 || !clearOfVillage(x, z, 2)) continue;
+    const s = rr(0.5, 1.6) * (R() < 0.15 ? 1.8 : 1);
+    lists[R() < 0.5 ? 'boulder_a' : 'boulder_b'].push(compose(x, footMin(x, z, s) - 0.1 * s, z, rr(-0.1, 0.1), rr(0, 6.28), rr(-0.1, 0.1), s));
+  }
+  for (const k in lists) {
+    const shadow = !['tussock', 'lilies', 'sundews', 'pitchers'].includes(k);
+    SCATTER.push(...instance(partsOf(ASSETS[k]), lists[k], { shadow, keep: [] }));
+  }
+}
+function buildStatic() {
+  const bank = ASSETS.peat_bank.scene.clone();
+  bank.position.set(BANK.x, 0.0, BANK.z);
+  bank.rotation.y = BANK.yaw;
+  scene.add(bank);
+}
+
+// ---------- roofs, looking inside ----------
+let roofsCut = false;
+function setRoofs(cut) {
+  roofsCut = cut;
+  document.getElementById('b-roofs').setAttribute('aria-pressed', String(cut));
+  for (const h of village.houses) h.roofs.forEach(r => { r.visible = !cut; });
+}
+document.getElementById('b-roofs').addEventListener('click', () => setRoofs(!roofsCut));
+let insideIdx = -1;
+const NOTES = {
+  small: 'Small house: one room. The door and the single window are real openings through the peat wall; the bed sits across from the door, out of the draught, the fuel stack just inside it, the hearth under the smoke hole.',
+  medium: 'Middle house: two windows, the table under the brighter one, a cooking pot on a tripod over the hearth, the bed against the back wall.',
+  tall: 'Tall house: the high walls hold a sleeping loft over the back half, reached by a ladder. The two upper windows you see from outside light the loft; the hearth sits forward, clear of the loft boards, under the smoke hole.',
+};
+function lookInside() {
+  if (!village.houses.length) return;
+  insideIdx = (insideIdx + 1) % village.houses.length;
+  const h = village.houses[insideIdx];
+  setRoofs(true);
+  follow = false; press('b-follow', false);
+  const back = new THREE.Vector3(-Math.sin(h.yaw), 0, -Math.cos(h.yaw));
+  controls.target.set(h.x, HOUSE_DECK + 0.9, h.z);
+  camera.position.set(h.x + back.x * 1.5 - back.z * 4.5, HOUSE_DECK + 7.5, h.z + back.z * 1.5 + back.x * 4.5);
+  caption.textContent = NOTES[h.variant] + ' (' + (insideIdx + 1) + ' of ' + village.houses.length + ')';
+  caption.hidden = false;
+}
+document.getElementById('b-inside').addEventListener('click', lookInside);
+document.getElementById('b-village').addEventListener('click', () => {
+  follow = false; press('b-follow', false); caption.hidden = true;
+  controls.target.set(-6, 1, 0);
+  camera.position.set(-30, 26, 44);
+});
+
+// ---------- the walker ----------
+let body = null, mixer = null, dist = 0, follow = true, paused = false, wire = false;
+let ROUTE = null, ROUTE_Y = null;
+const SPEED = 0.83;
+function walkY(x, z) {
+  for (const h of village.houses) { if (Math.hypot(x - h.x, z - h.z) < h.H.Rd - 0.05) return HOUSE_DECK; }
+  if (distWalks(x, z) < 0.66) return DECK_WALK;
+  return groundAt(x, z);
+}
+function makeRoute() {
+  // west shore -> spine -> into the walk-in house and round its hearth -> spine -> the peat bank -> the trackway home
+  const pts = [];
+  const h = village.houses.find(k => k.walkIn) || village.houses[0];
+  const tot = spineAt(0).len;
+  const toW = (bx, by) => {   // house-local Blender (x, y) to world (x, z)
+    const lx = bx, lz = -by, c = Math.cos(h.yaw), s = Math.sin(h.yaw);
+    return [h.x + lx * c + lz * s, h.z - lx * s + lz * c];
+  };
+  pts.push([-52, 12], [SPINE[0][0], SPINE[0][1]]);
+  for (let i = 1; i < SPINE.length; i++) {
+    const p0 = spineAt(0), seg = SPINE[i];
+    // insert the house visit where the spine passes its spur
+    const prevT = (() => { let d = 0; for (let k = 0; k < i - 1; k++) d += Math.hypot(SPINE[k + 1][0] - SPINE[k][0], SPINE[k + 1][1] - SPINE[k][1]); return d / tot; })();
+    const nextT = prevT + Math.hypot(seg[0] - SPINE[i - 1][0], seg[1] - SPINE[i - 1][1]) / tot;
+    if (h && h.spineT !== undefined && h.spineT >= prevT && h.spineT < nextT) {
+      const p = spineAt(h.spineT - 1.2 / tot), q = spineAt(h.spineT), r2 = spineAt(h.spineT + 1.2 / tot);
+      const Rd = h.H.Rd, Rw = h.H.Rw;
+      pts.push([p.x, p.z], [q.x, q.z]);
+      const inside = [[0, -Rd - 1.6], [0, -Rd - 0.3], [0, -Rw - 0.25], [0, -Rw + 0.55], [0.9, -Rw + 1.25], [1.35, -1.2], [1.25, -0.7], [0.75, -1.05], [0.35, -Rw + 1.0], [0, -Rw + 0.25], [0, -Rd + 0.1], [0, -Rd - 1.4]];
+      inside.forEach(([bx, by]) => pts.push(toW(bx, by)));
+      pts.push([r2.x, r2.z]);
+    }
+    pts.push(seg);
+  }
+  pts.push([47.0, -9.6], [46.6, -12]);
+  TRACK.forEach(p => pts.push(p));
+  pts.push([-52, 9]);
+  ROUTE = new THREE.CatmullRomCurve3(pts.map(([x, z]) => new THREE.Vector3(x, 0, z)), true, 'centripetal');
+  dist = Math.min(dist, ROUTE.getLength());
+}
+function startWalker() {
+  Promise.all([load('assets/body.json'), load('assets/hair.json')]).then(([g, hg]) => {
+    body = g.scene;
+    body.traverse(n => { if (n.isMesh) { n.castShadow = true; n.receiveShadow = true; } });
+    const hairs = [];
+    hg.scene.traverse(n => { if (n.isSkinnedMesh) hairs.push(n); });
+    hairs.forEach(hh => {
+      const name = hh.name.startsWith('hair_') ? hh.name : hh.parent.name;
+      if (name !== 'hair_cropped') return;
+      const bones = hh.skeleton.bones.map(bn => body.getObjectByName(bn.name));
+      (body.getObjectByName('npc_human_mh') || body).add(hh);
+      hh.bind(new THREE.Skeleton(bones, hh.skeleton.boneInverses), hh.bindMatrix);
+      hh.castShadow = true;
+    });
+    scene.add(body);
+    mixer = new THREE.AnimationMixer(body);
+    const clip = g.animations.find(a => a.name === 'walk') || g.animations[0];
+    mixer.clipAction(clip).play();
+    status.textContent = 'Walking the loop';
+    setTimeout(() => { if (status.textContent === 'Walking the loop') status.hidden = true; }, 4000);
+  }).catch(err => { status.textContent = 'The walker failed to load; the fen is still here to explore.'; console.error(err); });
+}
+const tmp = new THREE.Vector3(), look = new THREE.Vector3();
+let yS = null;
+function placeBody(dt) {
+  const L = ROUTE.getLength(), t = ((dist % L) + L) % L / L;
+  ROUTE.getPointAt(t, tmp); ROUTE.getTangentAt(t, look);
+  const y = walkY(tmp.x, tmp.z);
+  yS = yS === null ? y : yS + (y - yS) * Math.min(1, dt * 10);
+  body.position.set(tmp.x, yS, tmp.z);
+  body.rotation.y = Math.atan2(look.x, look.z);
+}
+
+// ---------- mist ----------
+const mistU = { uTime: timeU, uCol: { value: new THREE.Color(0xe8e4d6) }, uScale: { value: 1 }, uAmt: { value: 1 } };
+const mist = (() => {
+  const o = [], s = [];
+  for (let i = 0; i < 1400; i++) {
+    const x = (hash2(i, 1, 9) - 0.5) * 170, z = (hash2(i, 2, 9) - 0.5) * 170;
+    const g = Math.max(0, height(x, z));
+    if (g > 2) continue;
+    o.push(x, g + 0.3 + hash2(i, 3, 9) * 1.4, z); s.push(hash2(i, 4, 9));
+  }
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(o, 3));
+  g.setAttribute('aSeed', new THREE.Float32BufferAttribute(s, 1));
+  const mat = new THREE.ShaderMaterial({
+    uniforms: mistU, transparent: true, depthWrite: false,
+    vertexShader: `uniform float uTime, uScale; attribute float aSeed; varying float vA;
+      void main(){
+        vec3 p = position + vec3(sin(uTime * .05 + aSeed * 40.) * 4. + uTime * .25 * (.5 + aSeed), sin(uTime * .2 + aSeed * 9.) * .2, cos(uTime * .04 + aSeed * 30.) * 4.);
+        p.x = mod(p.x + 85., 170.) - 85.;
+        vec4 mv = modelViewMatrix * vec4(p, 1.);
+        gl_Position = projectionMatrix * mv;
+        gl_PointSize = (9. + aSeed * 8.) * 380. * uScale / -mv.z;
+        vA = .085 * smoothstep(2., 12., -mv.z) * smoothstep(160., 70., -mv.z);
+      }`,
+    fragmentShader: `uniform vec3 uCol; uniform float uAmt; varying float vA;
+      void main(){ float d = length(gl_PointCoord - .5); float a = vA * uAmt * smoothstep(.5, .0, d); if (a < .002) discard; gl_FragColor = vec4(uCol, a); }`,
+  });
+  const pts = new THREE.Points(g, mat);
+  pts.frustumCulled = false;
+  pts.renderOrder = 3;
+  scene.add(pts);
+  return pts;
+})();
+
+// ---------- hearth and lantern lights: a small pool moved to the nearest ones ----------
+const POOL = [0, 1, 2, 3].map(() => { const l = new THREE.PointLight(0xff9a48, 0, 9, 2); scene.add(l); return l; });
+const LPOOL = [0, 1].map(() => { const l = new THREE.PointLight(0xffc070, 0, 8, 2); scene.add(l); return l; });
+let fireI = 1.6, lampI = 0;
+
+// ---------- light presets ----------
+const LIGHTS = {
+  day:  { zen: 0x8fb0c4, hor: 0xe6e0cf, fog: 0xd9d6c6, near: 18, far: 165, sun: 0xffe2b8, sunI: 1.15, dir: [0.55, 0.42, 0.5], hs: 0xdce4e6, hg: 0x6b5638, hI: 0.78,
+          deep: 0x1d0f07, shallow: 0x8a4c18, glow: 1.0, fire: 1.4, lamp: 0.0, mist: 0xece8da, mistA: 1.0, exp: 1.0, glint: 1.0 },
+  dusk: { zen: 0x1d2a4a, hor: 0xd88b5e, fog: 0x6e5a5c, near: 14, far: 140, sun: 0xff9a5a, sunI: 0.55, dir: [-0.8, 0.1, 0.35], hs: 0x6f78a8, hg: 0x3a2a24, hI: 0.55,
+          deep: 0x0c0605, shallow: 0x4a2410, glow: 2.4, fire: 4.5, lamp: 2.6, mist: 0xb79a95, mistA: 0.75, exp: 1.15, glint: 0.6 },
+};
+let sunDir = new THREE.Vector3();
+function setLight(k) {
+  const L = LIGHTS[k];
+  skyU.uZen.value.set(L.zen); skyU.uHor.value.set(L.hor); skyU.uSunCol.value.set(L.sun);
+  sunDir.set(...L.dir).normalize(); skyU.uSun.value.copy(sunDir);
+  scene.fog.color.set(L.fog); scene.fog.near = L.near; scene.fog.far = L.far;
+  waterU.uFogCol.value.set(L.fog); waterU.uFogNear.value = L.near; waterU.uFogFar.value = L.far;
+  waterU.uDeep.value.set(L.deep); waterU.uShallow.value.set(L.shallow); waterU.uGlint.value = L.glint;
+  sun.color.set(L.sun); sun.intensity = L.sunI;
+  hemi.color.set(L.hs); hemi.groundColor.set(L.hg); hemi.intensity = L.hI;
+  GLOW.forEach(m => m.color.setScalar(L.glow));
+  fireI = L.fire; lampI = L.lamp;
+  mistU.uCol.value.set(L.mist); mistU.uAmt.value = L.mistA;
+  renderer.toneMappingExposure = L.exp;
+  document.getElementById('t-day').setAttribute('aria-pressed', k === 'day');
+  document.getElementById('t-dusk').setAttribute('aria-pressed', k === 'dusk');
+  lightKey = k;
+}
+let lightKey = 'day';
+setLight('day');
+document.getElementById('t-day').addEventListener('click', () => setLight('day'));
+document.getElementById('t-dusk').addEventListener('click', () => setLight('dusk'));
+
+// ---------- UI ----------
+const panel = document.querySelector('.panel'), menuBtn = document.getElementById('b-menu');
+function resize() {
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  renderer.setSize(w, h, false);
+  camera.aspect = w / h;
+  const open = !panel.classList.contains('closed'), side = panel.getBoundingClientRect().right + 8;
+  if (open && w - side > 420) { camera.aspect = (w + side) / h; camera.setViewOffset(w + side, h, 0, 0, w, h); } else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+  mistU.uScale.value = h / 900;
+}
+function setMenu(open) { panel.classList.toggle('closed', !open); menuBtn.textContent = open ? 'Hide' : 'Menu'; menuBtn.setAttribute('aria-expanded', open); resize(); }
+menuBtn.addEventListener('click', () => setMenu(panel.classList.contains('closed')));
+if (window.innerWidth < 700 || window.innerHeight < 560) setMenu(false);
+window.addEventListener('resize', resize);
+resize();
+const press = (id, on) => document.getElementById(id).setAttribute('aria-pressed', String(on));
+document.getElementById('b-follow').addEventListener('click', () => { follow = !follow; press('b-follow', follow); if (follow) caption.hidden = true; });
+document.getElementById('b-pause').addEventListener('click', e => { paused = !paused; press('b-pause', paused); e.currentTarget.textContent = paused ? 'Play' : 'Pause'; });
+document.getElementById('b-mist').addEventListener('click', () => { mist.visible = !mist.visible; press('b-mist', mist.visible); });
+document.getElementById('b-wire').addEventListener('click', () => {
+  wire = !wire; press('b-wire', wire);
+  scene.traverse(n => { if (n.isMesh && n !== sky) [].concat(n.material).forEach(m => { m.wireframe = wire; }); });
+});
+const seedIn = document.getElementById('seed');
+try { const h = decodeURIComponent(location.hash.slice(1)); if (h) seedIn.value = h; } catch (e) { /* no hash */ }
+document.getElementById('seed-form').addEventListener('submit', e => { e.preventDefault(); if (ASSETS.house_tall) buildVillage(seedIn.value.trim() || 'ambermere'); });
+document.getElementById('b-roll').addEventListener('click', () => {
+  const W = ['reed', 'peat', 'mere', 'tallow', 'sedge', 'amber', 'otter', 'heron', 'wattle', 'lantern', 'crannog', 'moss'];
+  seedIn.value = W[Math.floor(Math.random() * W.length)] + '-' + W[Math.floor(Math.random() * W.length)] + '-' + Math.floor(Math.random() * 90 + 10);
+  if (ASSETS.house_tall) buildVillage(seedIn.value);
+});
+if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) { paused = true; press('b-pause', true); document.getElementById('b-pause').textContent = 'Play'; }
+
+// ---------- loop ----------
+const clock = new THREE.Clock();
+let acc = 0, frames = 0, elapsed = 0;
+const sTris = document.getElementById('s-tris'), sCalls = document.getElementById('s-calls'), sFps = document.getElementById('s-fps');
+const near = new THREE.Vector3();
+function frame() {
+  const dt = Math.min(clock.getDelta(), 0.05);
+  if (!paused) { elapsed += dt; timeU.value = elapsed; }
+  if (body && ROUTE) {
+    if (!paused) { dist += SPEED * dt; mixer.update(dt); }
+    placeBody(dt);
+    if (follow) {
+      const target = new THREE.Vector3(body.position.x, body.position.y + 1.0, body.position.z);
+      camera.position.add(target.clone().sub(controls.target));
+      controls.target.copy(target);
+    }
+  }
+  const c = body && follow ? body.position : controls.target;
+  sun.position.set(c.x + sunDir.x * 70, c.y + sunDir.y * 70, c.z + sunDir.z * 70);
+  sun.target.position.copy(c);
+  sky.position.copy(camera.position);
+  // a roof lifts by itself while the walker or the camera is inside its house
+  if (!roofsCut) for (const h of village.houses) {
+    const inW = body && Math.hypot(body.position.x - h.x, body.position.z - h.z) < h.H.Ro && follow;
+    const inC = Math.hypot(camera.position.x - h.x, camera.position.z - h.z) < h.H.Ro + 0.4 && camera.position.y < HOUSE_DECK + 6;
+    const show = !(inW || inC);
+    h.roofs.forEach(r => { if (r.visible !== show) r.visible = show; });
+  }
+  // move the light pool to the nearest hearths and lanterns
+  near.copy(controls.target);
+  const hs = village.houses.slice().sort((a, b) => a.hearth.distanceToSquared(near) - b.hearth.distanceToSquared(near));
+  POOL.forEach((l, i) => {
+    const h = hs[i];
+    if (!h) { l.intensity = 0; return; }
+    l.position.copy(h.hearth);
+    l.intensity = fireI * (0.85 + 0.15 * Math.sin(elapsed * 9 + i * 2) * Math.sin(elapsed * 5.3 + i));
+  });
+  const ls = LANTERNS.slice().sort((a, b) => a.distanceToSquared(near) - b.distanceToSquared(near));
+  LPOOL.forEach((l, i) => { if (ls[i]) { l.position.copy(ls[i]); l.intensity = lampI; } });
+  controls.update();
+  renderer.render(scene, camera);
+  acc += dt; frames++;
+  if (acc > 0.5) {
+    sTris.textContent = renderer.info.render.triangles.toLocaleString('en-GB');
+    sCalls.textContent = renderer.info.render.calls;
+    sFps.textContent = Math.round(frames / acc) + ' fps';
+    acc = 0; frames = 0;
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>

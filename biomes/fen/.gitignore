@@ -1,0 +1,4 @@
+__pycache__/
+*.blend
+*_bake.npz
+out/
