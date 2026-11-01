@@ -45,6 +45,32 @@ ramp (honey larch, blue-black iron, madder, woad) through the same error diffusi
 where each piece stands; the bake stands the real models in the room so their shadows and occlusion land on the floor
 and walls, and the page places the same models at the same marks.
 
+## Seeded towns
+
+`blender/town.py` builds a town from a seed, following the mountain settlement brief and borrowing from the tundra one:
+
+- **Threat, food and water.** Cold and rockfall: heavy stone walls, small windows, every house round a hearth with
+  smoke rising from its stack. Food from terrace fields on the lowest tier; water from an aqueduct that carries snowmelt
+  from a spring above the town down to a cistern on the hall's tier.
+- **Layout.** The town is a hamlet (3 tiers), village (4) or town (5). Each tier is a level terrace cut into the slope
+  and held by a retaining wall whose foundation goes 1.2 m below the lower ground, so nothing floats. Solid stair
+  flights run along the wall faces and switch direction from tier to tier, so the way up zigzags across the town. A
+  hoist lifts loads between tiers, and a watchtower stands at the end of the top tier.
+- **Industry.** A quarry is cut into the hill at one end (the cut face shows the strata) with a crane and stacked
+  blocks; the town's stone comes from it. Chopping blocks and log piles stand beside the houses.
+- **Communal.** A moot hall on the widest tier, a long hearth down its middle under a hood and stack, tables and benches
+  from the shared furniture set (the tundra longhouse idea, in stone).
+
+New models: `assets/hall.py` (the moot hall, inside matching outside) and `assets/townkit.py` (retaining wall, aqueduct
+span, cistern, crane, hoist, chopping station, wall stair, quarry blocks), baked the same way as the houses.
+
+Run one terrain per seed and gather them; the page has a seed picker (`#skarrow` in the address picks one):
+
+    python blender/terrain.py --assets OUT --out T_vanehold --seed vanehold
+    python blender/terrain.py --assets OUT --out T_skarrow --seed skarrow
+    python assemble.py --assets OUT --terrain vanehold=T_vanehold --terrain skarrow=T_skarrow --furniture FUR
+    python blender/export_godot.py --assets OUT --terrain vanehold=T_vanehold --terrain skarrow=T_skarrow --dest .../trading-game/assets/mountain
+
 ## Files
 
 - `blender/build.py`: build one asset. `python blender/build.py house --seed brannoch --out OUT --size 4096 --samples 24`
