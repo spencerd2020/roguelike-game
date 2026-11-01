@@ -75,6 +75,10 @@ def bake(out, assets, h, L, size, samples):
     for pv in {x['variant'] for x in L['pines']}:
         lib['pine_' + pv] = import_asset(os.path.join(assets, f'pine_{pv}.glb'))
     lib['props'] = import_asset(os.path.join(assets, 'props.glb'))
+    for hv in {x['variant'] for x in L.get('halls', [])}:
+        lib['hall_' + hv] = import_asset(os.path.join(assets, f'hall_{hv}.glb'))
+    if L.get('town_stairs') or L.get('halls'):
+        lib['townkit'] = import_asset(os.path.join(assets, 'townkit.glb'))
 
     def root(d, name):
         o = d.get(name)
@@ -83,12 +87,21 @@ def bake(out, assets, h, L, size, samples):
         return o
     for x in L['houses']:
         instance(root(lib['house_' + x['variant']], 'house_' + x['variant']), x['x'], x['y'], x['z'], x['rot'])
-    tw = L['tower']
-    instance(root(lib['tower'], 'tower_windwatch'), tw['x'], tw['y'], tw['z'], tw['rot'])
+    for x in L.get('halls', []):
+        instance(root(lib['hall_' + x['variant']], 'hall_' + x['variant']), x['x'], x['y'], x['z'], x['rot'])
+    for tw in [L['tower']] + L.get('towers', []):
+        instance(root(lib['tower'], 'tower_windwatch'), tw['x'], tw['y'], tw['z'], tw['rot'])
+    TOWN_KINDS = {'rwall': 'townkit', 'aqueduct': 'aqueduct', 'cistern': 'cistern', 'crane': 'crane', 'hoist': 'hoist',
+                  'chop': 'chop', 'wstair': 'wstair', 'blocks': 'blocks'}
     for x in L['pines']:
         instance(root(lib['pine_' + x['variant']], 'pine_' + x['variant']), x['x'], x['y'], x['z'], x['rot'], x['s'])
     pr = lib['props']
-    for x in L['props'] + L['stairs']:
+    for x in L['props'] + L['stairs'] + L.get('town_stairs', []):
+        if x['kind'] in TOWN_KINDS:
+            src = lib['townkit'].get(TOWN_KINDS[x['kind']])
+            if src is not None:
+                instance(src, x['x'], x['y'], x['z'], x['rot'], x.get('s', 1.0), with_children=False)
+            continue
         k = 'props' if x['kind'] == 'boulder0' else x['kind']
         src = pr.get(k)
         if src is None:

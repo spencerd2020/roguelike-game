@@ -216,6 +216,16 @@ def build(seed):
     vane.wind_wheel(K, Ou, hub, V(-1, 0, 0), r=min(1.45, (hub.z - zt) + 0.75), inside=0.95)
     K.markers['rotor'] = tuple(hub)
     K.markers['door'] = (du, -W / 2, zp)
+    K.markers['smoke'] = ((chim[0] + chim[1]) / 2, 0.0, top + 0.3)
+    # for the game port's room plan: where the fire burns, the hearthstone ledge, and spare floor for loose things
+    K.markers['hearth'] = (xi - 0.35, 0.0, zp + 0.38)
+    K.markers['room'] = {'L': L, 'W': W, 't': t, 'zf': zf, 'zt': zt}
+    K.markers['slots'] = [
+        ['hearth', xi - 0.7, -0.62, zp + 0.2, 0.0, 0.3, 0.3],
+        ['floor', -L / 2 + t + 0.45, -W / 2 + t + 0.45, zf, 0.0, 0.7, 0.7],
+        ['floor', xi - 0.5, W / 2 - t - 1.2, zf, 0.0, 0.6, 0.6],
+        ['door', du + 0.75, -W / 2 + t + 0.35, zf, 0.0, 0.5, 0.4],
+    ]
     ctx['pivots'] = {'rotor': tuple(hub)}
     ctx['footprint'] = [L + 2 * m, W + 2 * m]
 

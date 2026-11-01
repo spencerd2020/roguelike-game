@@ -329,6 +329,15 @@ def p_quartz(T):
     return T
 
 
+def p_water(T):
+    """Running water in a flume or standing in a cistern: woad blue, lighter where it catches the sky."""
+    T.out()
+    P = T.P
+    ripple = fbm(P, 6, 131, 3)
+    put(T, np.ones(T.n, bool), 'woad', lit(0.62 + ripple * 0.18, T, 0.4, edge=0.3, cav=0.05))
+    return T
+
+
 def p_rock(T):
     return p_stone(T, banded=False)
 
@@ -338,6 +347,7 @@ PAINTERS = {
     'wood': p_wood, 'plank': lambda T: p_wood(T, 'honey', False), 'shingle': p_shingle, 'iron': p_iron,
     'cloth': p_cloth, 'bedding': lambda T: p_cloth(T, 'wool', 'woad'), 'sail': lambda T: p_cloth(T, 'wool', 'madder'),
     'rope': p_rope, 'pennant': lambda T: p_cloth(T, 'madder', 'woad'), 'bark': p_bark, 'needle': p_needle, 'quartz': p_quartz,
+    'water': p_water,
 }
 
 

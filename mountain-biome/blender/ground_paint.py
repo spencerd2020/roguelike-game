@@ -31,6 +31,9 @@ for i, k in enumerate(P.RNAMES):
         P.RTAB[i, j] = P._hex(hx)
 
 
+TOWN = None      # the seeded town (town.Town), set by terrain.py: its frame lays out fields and street flags
+
+
 def bilinear(A, fx, fy):
     fx = np.clip(fx, 0, N - 1.001)
     fy = np.clip(fy, 0, N - 1.001)
@@ -131,6 +134,33 @@ def paint(out, X, Y, h, zmap, slope, dp, S):
         jm = sq & joint
         R[jm] = P.RID['mortar']
         T[jm] = 0.2
+        # the town: flagged streets along the terraces, ploughed terrace fields in rows along the contour, the quarry floor
+        if TOWN is not None:
+            U, Vv = TOWN.uv(x, y)
+            st = z == ZONES['street']
+            fu, fv = U / 0.8, Vv / 0.55
+            rowv = np.floor(fv)
+            fu = fu + (rowv % 2) * 0.5
+            a_, b_ = fu - np.floor(fu), fv - rowv
+            jt = (np.minimum(a_, 1 - a_) < 0.05) | (np.minimum(b_, 1 - b_) < 0.07)
+            cell = P._hash(np.floor(fu).astype(np.int64), rowv.astype(np.int64), np.zeros_like(rowv, dtype=np.int64), 113)
+            R[st] = np.where(cell[st] > 0.72, P.RID['rose'], np.where(cell[st] > 0.36, P.RID['cream'], P.RID['slate']))
+            T[st] = (0.42 + (cell - 0.5) * 0.3 + vn2(x, y, 25, 114) * 0.06)[st]
+            R[st & jt] = P.RID['mortar']
+            T[st & jt] = 0.2
+            fd = z == ZONES['field']
+            row = (Vv / 0.9) % 1.0
+            furrow = fd & (row < 0.42)
+            crop = fd & ~furrow
+            R[furrow] = P.RID['dirt']
+            T[furrow] = (0.25 + row * 0.6 + vn2(x, y, 20, 115) * 0.1)[furrow]
+            ripe = fbm2(x, y, 1 / 8, 116, 3) > 0.05
+            R[crop] = np.where(ripe[crop], P.RID['gold'], P.RID['turf'])
+            T[crop] = (0.35 + (row - 0.42) * 0.9 + vn2(x, y, 30, 117) * 0.12)[crop]
+            qz = z == ZONES['quarry']
+            chips = lambda a, b: np.maximum(vn2(a, b, 4.0, 118), vn2(a, b, 9.0, 119) * 0.8)
+            R[qz] = np.where(vn2(x, y, 0.8, 120)[qz] > 0.1, P.RID['cream'], P.RID['slate'])
+            T[qz] = (0.3 + relief(chips, x, y, 0.02) * 0.55)[qz]
         rid[r0:r1] = R
         tt[r0:r1] = np.clip(T, 0, 1)
     n = P.RLEN[rid].astype(np.int32)

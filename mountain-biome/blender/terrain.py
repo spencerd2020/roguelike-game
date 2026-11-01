@@ -118,10 +118,17 @@ def heights(seed):
     carve = sm(8.0, 2.4, dg + fbm2(X, Y, 1 / 7, s + 9, 3) * 0.9)
     wall = np.floor(carve * 6) / 6 * 0.25 + carve * 0.75      # stepped strata in the gorge walls
     h = h + (floor - h) * wall * sm(-125, -100, Y) * sm(75, 40, Y)
-    # the path is a gentle groove; building pads are flat
-    dp = dist_poly(X, Y, path_points())
-    h -= sm(1.6, 0.0, dp) * 0.12
-    return X, Y, h, dp
+    return X, Y, h
+
+
+def path_dist(X, Y):
+    d = dist_poly(X, Y, path_points())
+    if BRANCH:
+        d = np.minimum(d, dist_poly(X, Y, BRANCH))
+    return d
+
+
+BRANCH = []      # the way up from the meadow path to the town's lowest tier (set by main from the town)
 
 
 def flatten(X, Y, h, pads):
@@ -140,23 +147,19 @@ def ground_at(h, x, y):
     return float(h[i, j] * (1 - tx) * (1 - ty) + h[i, j + 1] * tx * (1 - ty) + h[i + 1, j] * (1 - tx) * ty + h[i + 1, j + 1] * tx * ty)
 
 
-def layout(seed, X, Y, h, dp):
+def layout(seed, X, Y, h, dp, town):
     rng = np.random.default_rng(__import__('zlib').crc32(seed.encode()))
     L = {'houses': [], 'tower': None, 'pines': [], 'props': [], 'bridge': None}
     pads = []
     vx, vy = VILLAGE
-    variants = ['brannoch', 'tessaly', 'orrow']
-    ring = [(-150, 15.5), (-108, 14.0), (-62, 15.0), (-12, 16.0), (40, 15.0), (85, 16.5)]
-    for i, (a, rr) in enumerate(ring):
-        ar = math.radians(a + rng.uniform(-6, 6))
-        px, py = vx + math.cos(ar) * rr, vy + math.sin(ar) * rr
-        # face the square: the door (local -y) points at the centre
-        face = math.atan2(vy - py, vx - px)
-        rot = face + math.pi / 2
-        z = SHELF + 0.4 * math.sin(i)
-        L['houses'].append({'variant': variants[i % 3], 'x': px, 'y': py, 'rot': rot, 'z': z})
-        pads.append((px, py, 5.6, z))
-    pads.append((vx, vy, 7.0, SHELF))     # the square
+    T = town
+    TL = T.layout(lambda x, y: ground_at(h, x, y))
+    L['houses'] = TL['houses']
+    L['halls'] = TL['halls']
+    L['towers'] = [TL['tower']]
+    L['town'] = TL['town']
+    L['town_stairs'] = TL['town_stairs']
+    L['props_town_n'] = len(TL['props'])
     L['tower'] = {'x': CRAG[0], 'y': CRAG[1], 'rot': math.radians(rng.uniform(-10, 10)), 'z': None}
     # bridge ends on shelves either side of the gorge
     gxb = float(gorge_x(np.array([BRIDGE_Y]))[0])
@@ -171,10 +174,12 @@ def layout(seed, X, Y, h, dp):
 
     def slope(x, y):
         return abs(gz(x + 1, y) - gz(x - 1, y)) / 2 + abs(gz(x, y + 1) - gz(x, y - 1)) / 2
-    taken = [(hh['x'], hh['y'], 7.5) for hh in L['houses']] + [(vx, vy, 7.5), (CRAG[0], CRAG[1], 9), (gxb, BRIDGE_Y, 14), (gxb + 12, BRIDGE_Y - 14, 6)]
+    taken = [(CRAG[0], CRAG[1], 9), (gxb, BRIDGE_Y, 14), (gxb + 12, BRIDGE_Y - 14, 6)]
 
     def free(x, y, r):
-        if float(dist_poly(np.array([x]), np.array([y]), path_points())[0]) < r + 1.4:
+        if float(path_dist(np.array([x]), np.array([y]))[0]) < r + 1.4:
+            return False
+        if town.covers(x, y, r):
             return False
         return all(math.hypot(x - a, y - b) > r + c for a, b, c in taken)
     # pines: on the shelf edges and lower slopes, in loose groves
@@ -218,11 +223,11 @@ def layout(seed, X, Y, h, dp):
             continue
         L['props'].append({'kind': 'quartz', 'x': x, 'y': y, 'z': z - 0.2, 'rot': float(rng.uniform(0, 6)), 's': float(rng.uniform(0.8, 1.6))})
         taken.append((x, y, 1.5))
-    for a in (20, 140, 260):
-        ar = math.radians(a)
-        x, y = vx + math.cos(ar) * 7.6, vy + math.sin(ar) * 7.6
+    bx_, by_ = L['town']['base']
+    for k in range(3):
+        x, y = bx_ + (k - 1) * 9.0 + rng.uniform(-1, 1), by_ - 3.0 + rng.uniform(-1, 1)
         L['props'].append({'kind': 'windpost', 'x': x, 'y': y, 'z': gz(x, y) - 0.1, 'rot': float(rng.uniform(0, 6)), 's': 1.0})
-    L['props'].append({'kind': 'trough', 'x': vx + 2.5, 'y': vy - 2.2, 'z': SHELF, 'rot': 0.4, 's': 1.0})
+    L['props'] += TL['props']
     # field walls south of the village
     for k in range(9):
         x, y = -26 + k * 4.0 + rng.uniform(-0.2, 0.2), -14 - 0.6 * k + rng.uniform(-0.3, 0.3)
@@ -246,10 +251,11 @@ def crag_stairs(h, L):
     return out
 
 
-ZONES = {'meadow': 1, 'scree': 2, 'cliff': 3, 'snow': 4, 'path': 5, 'shore': 6, 'water': 7, 'square': 8, 'gorge': 9}
+ZONES = {'meadow': 1, 'scree': 2, 'cliff': 3, 'snow': 4, 'path': 5, 'shore': 6, 'water': 7, 'square': 8, 'gorge': 9,
+         'field': 10, 'street': 11, 'quarry': 12}
 
 
-def zones(X, Y, h, dp):
+def zones(X, Y, h, dp, tzone=None):
     gy, gx = np.gradient(h, STEP)
     slope = np.hypot(gx, gy)
     z = np.full(h.shape, ZONES['meadow'], np.uint8)
@@ -263,7 +269,8 @@ def zones(X, Y, h, dp):
     gxx = gorge_x(Y)
     z[(np.abs(X - gxx) < 3.0) & (h < 8) & (Y < 70)] = ZONES['gorge']
     z[(dp < 1.25 + n * 0.3) & (slope < 0.9)] = ZONES['path']
-    z[np.hypot(X - VILLAGE[0], Y - VILLAGE[1]) < 6.6] = ZONES['square']
+    if tzone is not None:
+        z[tzone > 0] = tzone[tzone > 0]
     return z, slope
 
 
@@ -279,19 +286,29 @@ def main():
     a = ap.parse_args()
     os.makedirs(a.out, exist_ok=True)
     t0 = time.time()
-    X, Y, h, dp = heights(a.seed)
-    h, L = layout(a.seed, X, Y, h, dp)
+    X, Y, h = heights(a.seed)
+    import town as townmod
+    T = townmod.Town(a.seed, lambda x, y: ground_at(h, x, y))
+    h, tzone = T.carve(X, Y, h)
+    global BRANCH
+    bx, by = T.at(T.tiers[0]['off'], -4.0)
+    BRANCH = [VILLAGE, ((VILLAGE[0] + bx) / 2 + 4, (VILLAGE[1] + by) / 2), (bx, by)]
+    dp = path_dist(X, Y)
+    h -= sm(1.6, 0.0, dp) * 0.12 * (tzone == 0)
+    h, L = layout(a.seed, X, Y, h, dp, T)
     L['stairs'] = crag_stairs(h, L)
-    zmap, slope = zones(X, Y, h, dp)
-    print(f'[terrain] heights {h.min():.1f}..{h.max():.1f} m, {len(L["houses"])} houses, {len(L["pines"])} pines, '
-          f'{len(L["props"])} props, {time.time() - t0:.1f}s', flush=True)
+    zmap, slope = zones(X, Y, h, dp, tzone)
     import ground_paint
+    ground_paint.TOWN = T
+    print(f'[terrain] {T.size} of {len(T.tiers)} tiers at ({T.cx:.0f}, {T.cy:.0f}), {len(L["houses"])} houses, '
+          f'{len(L["halls"])} hall, {len(L["town_stairs"])} stair flights; heights {h.min():.1f}..{h.max():.1f} m, {len(L["pines"])} pines, '
+          f'{len(L["props"])} props, {time.time() - t0:.1f}s', flush=True)
     ground_paint.paint(a.out, X, Y, h, zmap, slope, dp, a.size)
     import base64
     q = np.clip(np.round((h + 80.0) * 200.0), 0, 65535).astype(np.uint16)   # 5 mm steps from -80 m
     meta = {'size_m': SIZE_M, 'n': N, 'water': WATER, 'snow': SNOW, 'h_off': -80.0, 'h_scale': 1 / 200.0,
             'heights': base64.b64encode(q.tobytes()).decode(), 'zones': base64.b64encode(zmap.tobytes()).decode(),
-            'layout': L, 'path': path_points(), 'gorge': [[float(gorge_x(np.array([y]))[0]), y] for y in range(-130, 131, 5)]}
+            'layout': L, 'path': path_points(), 'branch': BRANCH, 'gorge': [[float(gorge_x(np.array([y]))[0]), y] for y in range(-130, 131, 5)]}
     json.dump(meta, open(os.path.join(a.out, 'terrain.json'), 'w'))
     np.save(os.path.join(a.out, 'heights.npy'), h.astype(np.float32))
     print(f'[terrain] painted, {time.time() - t0:.1f}s', flush=True)

@@ -52,7 +52,7 @@
 <div class="panel">
   <div class="head"><h1>Vanehold Pass</h1><button id="b-menu" aria-expanded="true" aria-controls="pbody">Hide</button></div>
   <div id="pbody">
-    <p class="sub">An original mountain biome, high above a sea of cloud. Peaks of banded slate, rose and cream stone stepped into strata ledges, a gold alpine meadow, a glacial tarn, a gorge crossed by a rope bridge, and a village of wind-wheel houses. Every model was generated in code and baked in Blender with painted, palette-only textures lit from above. Each building's inside matches its outside.</p>
+    <p class="sub">An original mountain biome, high above a sea of cloud. Peaks of banded slate, rose and cream stone stepped into strata ledges, a gold alpine meadow, a glacial tarn, a gorge crossed by a rope bridge, and a seeded town of wind-wheel houses terraced into the hill: retaining walls, switchback stairs, an aqueduct from the snowmelt, a quarry with a crane, terrace fields and a moot hall round a long hearth. Every model was generated in code and baked in Blender with painted, palette-only textures lit from above. Each building's inside matches its outside.</p>
     <p class="label">The pass's palette</p>
     <div class="swatches" aria-label="Biome palette">
       <span class="sw"><i style="background:#4b5058"></i>slate</span>
@@ -70,9 +70,11 @@
       <span>terrain</span><b>260 m, 0.5 m grid</b>
       <span>models</span><b id="s-models">loading…</b>
     </div>
+    <p class="label">Town seed</p>
+    <div class="row" id="seeds"></div>
     <p class="label">Go to</p>
     <div class="row">
-      <button data-view="village">Village</button><button data-view="inside">Inside a house</button><button data-view="tower">Tower gallery</button>
+      <button data-view="village">Town</button><button data-view="inside">Inside a house</button><button data-view="hall">Inside the moot hall</button><button data-view="quarry">Quarry</button><button data-view="tower">Tower gallery</button>
       <button data-view="tarn">Tarn</button><button data-view="bridge">Rope bridge</button><button data-view="peaks">Peaks</button>
     </div>
     <div class="row"><button id="b-roofs" aria-pressed="false">Cut away roofs</button><button id="b-follow" aria-pressed="true">Follow the walker</button></div>
@@ -84,6 +86,7 @@
     <div class="row">
       <button id="b-pause" aria-pressed="false">Pause</button>
       <button id="b-grass" aria-pressed="true">Grass</button>
+      <button id="b-smoke" aria-pressed="true">Smoke</button>
       <button id="b-wire" aria-pressed="false">Wireframe</button>
     </div>
     <p class="hint">Drag to orbit, scroll or pinch to zoom, right-drag to pan. Picking a place stops following; press Follow to go back to the walker.</p>
@@ -387,7 +390,8 @@ function buildGrass() {
   blade.setAttribute('aT', new THREE.Float32BufferAttribute(bt, 1));
   const zones = T.zonesArr, N = NN;
   const L0 = T.layout;
-  const keepOut = [...L0.houses.map(h => [h.x, h.y, 5.4]), [L0.tower.x, L0.tower.y, 4.6], ...L0.props.filter(p => p.kind === 'trough' || p.kind.startsWith('boulder')).map(p => [p.x, p.y, p.kind === 'trough' ? 1.3 : 1.1 * p.s])];
+  const keepOut = [...L0.houses.map(h => [h.x, h.y, 5.4]), ...(L0.halls || []).map(h => [h.x, h.y, 8.5]), ...[L0.tower, ...(L0.towers || [])].map(t => [t.x, t.y, 4.6]),
+    ...L0.props.filter(p => ['cistern', 'chop', 'blocks', 'crane', 'hoist'].includes(p.kind)).map(p => [p.x, p.y, 2.6]), ...L0.props.filter(p => p.kind === 'trough' || p.kind.startsWith('boulder')).map(p => [p.x, p.y, p.kind === 'trough' ? 1.3 : 1.1 * p.s])];
   const off = [], col = [];
   const rnd = mulberry(91);
   const C = [RAMP.grass[3], RAMP.grass[4], RAMP.grass[5], RAMP.grass[6], RAMP.turf[3], RAMP.turf[4]];
@@ -519,6 +523,46 @@ function template(root, name) {
   return t;
 }
 
+// ---------- chimney smoke: soft puffs rising from every stack, drifting downwind ----------
+const SMOKE_N = 18;
+let smoke = null, smokeSrc = [];
+function puffTexture() {
+  const c = document.createElement('canvas'); c.width = c.height = 64;
+  const x = c.getContext('2d');
+  const g = x.createRadialGradient(32, 32, 2, 32, 32, 31);
+  g.addColorStop(0, 'rgba(255,255,255,1)'); g.addColorStop(0.55, 'rgba(255,255,255,.45)'); g.addColorStop(1, 'rgba(255,255,255,0)');
+  x.fillStyle = g; x.fillRect(0, 0, 64, 64);
+  const t = new THREE.CanvasTexture(c); return t;
+}
+const smokeU = { uTime: timeU, uTex: { value: null }, uCol: { value: new THREE.Color(0xc9c6c2) }, uFog: null, uFogD: null, uScale: { value: 600 } };
+function buildSmoke(srcs) {
+  smokeSrc = srcs;
+  const n = srcs.length * SMOKE_N, pos = new Float32Array(n * 3), ph = new Float32Array(n * 2);
+  srcs.forEach((p, i) => { for (let k = 0; k < SMOKE_N; k++) { const j = i * SMOKE_N + k; pos.set([p.x, p.y, p.z], j * 3); ph[j * 2] = k / SMOKE_N; ph[j * 2 + 1] = (i * 7.31 + k * 3.17) % 1; } });
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  g.setAttribute('aPh', new THREE.BufferAttribute(ph, 2));
+  smokeU.uTex.value = puffTexture(); smokeU.uFog = terrainU.uFog; smokeU.uFogD = terrainU.uFogD;
+  const m = new THREE.ShaderMaterial({ uniforms: smokeU, transparent: true, depthWrite: false,
+    vertexShader: `uniform float uTime, uScale; attribute vec2 aPh; varying float vA; varying float vD;
+      void main(){ float t = fract(aPh.x + uTime * 0.045 + aPh.y * 0.013); float rise = t * 9.0;
+        vec3 p = position + vec3(0.9, 0.0, 0.5) * (t * t * 7.0) + vec3(sin(uTime * 0.7 + aPh.y * 30.0), 0.0, cos(uTime * 0.6 + aPh.y * 20.0)) * 0.35 * t;
+        p.y += rise;
+        vec4 mv = modelViewMatrix * vec4(p, 1.0); vD = -mv.z;
+        vA = smoothstep(0.0, 0.08, t) * (1.0 - t) * 0.55;
+        gl_PointSize = uScale * (0.5 + t * 2.4) / max(vD, 1.0); gl_Position = projectionMatrix * mv; }`,
+    fragmentShader: `uniform sampler2D uTex; uniform vec3 uCol, uFog; uniform vec2 uFogD; varying float vA; varying float vD;
+      void main(){ float a = texture2D(uTex, gl_PointCoord).a * vA; if (a < 0.01) discard;
+        vec3 c = mix(uCol, uFog, smoothstep(uFogD.x, uFogD.y, vD)); gl_FragColor = vec4(c, a); }` });
+  smoke = new THREE.Points(g, m);
+  smoke.frustumCulled = false;
+  smoke.renderOrder = 4;
+  scene.add(smoke);
+}
+// the town kit: each kind is a node of townkit; the retaining wall is its root
+const TOWN_KINDS = { rwall: 'townkit', aqueduct: 'aqueduct', cistern: 'cistern', crane: 'crane', hoist: 'hoist', chop: 'chop', wstair: 'wstair', blocks: 'blocks' };
+const SEED = (location.hash || '').replace('#', '').replace(/[^a-z0-9-]/g, '');
+
 // ---------- the walker ----------
 let body = null, mixer = null, dist = 0, follow = true, paused = false, wire = false;
 const SPEED = 0.83;
@@ -569,6 +613,7 @@ function setLight(k) {
   assetMats.forEach(m => { m.emissive.setScalar(L.emis); if (k === 'dusk') m.emissive.multiply(new THREE.Color(0xd8c4c8)); });
   furnMats.forEach(m => { m.emissive.setScalar(L.emis * FURN_K).multiply(new THREE.Color(0xffe6c8)); });
   glowMats.forEach(m => { m.color.set(L.glow); });
+  smokeU.uCol.value.set(k === 'day' ? 0xd2cfca : 0x8d8296);
   document.getElementById('t-day').setAttribute('aria-pressed', k === 'day');
   document.getElementById('t-dusk').setAttribute('aria-pressed', k === 'dusk');
 }
@@ -587,14 +632,25 @@ function goTo(k) {
 // ---------- boot ----------
 async function boot() {
   status.textContent = 'Loading the ground…';
-  T = await getJSON('assets/terrain.json');
+  const SEEDS = await getJSON('assets/seeds.json');
+  const seed = (SEEDS.find(s => s.seed === SEED) || SEEDS[0]).seed;
+  const box = document.getElementById('seeds');
+  for (const s of SEEDS) {
+    const b = document.createElement('button');
+    b.textContent = s.seed[0].toUpperCase() + s.seed.slice(1) + ' (' + s.size + ')';
+    b.setAttribute('aria-pressed', String(s.seed === seed));
+    b.addEventListener('click', () => { if (s.seed !== seed) { location.hash = s.seed; location.reload(); } });
+    box.appendChild(b);
+  }
+  const SD = `assets/seeds/${seed}/`;
+  T = await getJSON(SD + 'terrain.json');
   NN = T.n; STEP = T.size_m / (NN - 1); HALF = T.size_m / 2;
   const raw = Uint8Array.from(atob(T.heights), c => c.charCodeAt(0));
   const q = new Uint16Array(raw.buffer);
   H = new Float32Array(q.length);
   for (let i = 0; i < q.length; i++) H[i] = q[i] * T.h_scale + T.h_off;
   T.zonesArr = Uint8Array.from(atob(T.zones), c => c.charCodeAt(0));
-  const [gi, li] = await Promise.all([getImage('assets/ground.png'), getImage('assets/light.jpg')]);
+  const [gi, li] = await Promise.all([getImage(SD + 'ground.png'), getImage(SD + 'light.jpg')]);
   const tex = (img, nearest) => { const t = new THREE.Texture(img); t.needsUpdate = true; t.anisotropy = renderer.capabilities.getMaxAnisotropy();
     t.magFilter = nearest ? THREE.NearestFilter : THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter; return t; };
   terrainU.uGround.value = tex(gi, true);
@@ -608,7 +664,10 @@ async function boot() {
   // the route
   const R = T.layout;
   BRIDGE = R.bridge;
-  const loop = [[BRIDGE.x - 11.5, BRIDGE.y + 0.4], ...T.path, [14, -22], [0, -12], [-12, -8], [-30, -9.5], [BRIDGE.x + 11.5, BRIDGE.y - 0.4], [BRIDGE.x - 11.5, BRIDGE.y - 0.4]];
+  const br = T.branch || [];
+  const side = br.length > 2 ? (() => { const dx = br[2][0] - br[1][0], dy = br[2][1] - br[1][1], l = Math.hypot(dx, dy); return [-dy / l * 1.6, dx / l * 1.6]; })() : [0, 0];
+  const detour = br.length > 2 ? [br[1], br[2], [br[2][0] + side[0], br[2][1] + side[1]], [br[1][0] + side[0], br[1][1] + side[1]]] : [];
+  const loop = [[BRIDGE.x - 11.5, BRIDGE.y + 0.4], ...T.path, ...detour, [14, -22], [0, -12], [-12, -8], [-30, -9.5], [BRIDGE.x + 11.5, BRIDGE.y - 0.4], [BRIDGE.x - 11.5, BRIDGE.y - 0.4]];
   const pts = [];
   for (const [x, y] of loop) pts.push(new THREE.Vector3(x, 0, -y));
   ROUTE = new THREE.CatmullRomCurve3(pts, true, 'catmullrom', 0.5);
@@ -616,19 +675,27 @@ async function boot() {
   const hv = B2T(h0.x, h0.y, h0.z);
   const inward = new THREE.Vector3(Math.sin(h0.rot), 0, Math.cos(h0.rot));   // three-space: the house's +Y (Blender) points to -z rotated
   const tw = R.tower;
+  const TN = R.town, tu = TN.u, tv = TN.v, tiers = TN.tiers;
+  const TA = (u, v, z) => B2T(TN.cx + tu[0] * u + tv[0] * v, TN.cy + tu[1] * u + tv[1] * v, z);
+  const midT = tiers[Math.floor(tiers.length / 2)];
   views = {
-    village: [B2T(-14, -30, 25), B2T(-6, 4, 14)],
+    village: [TA(midT.off - 18, -34, tiers[0].z + 22), TA(midT.off, (midT.v0 + midT.v1) / 2, midT.z)],
+    quarry: [TA(TN.quarry[0] - Math.sign(TN.quarry[0]) * 16, TN.quarry[1] - 16, TN.quarry[2] + 16), TA(TN.quarry[0], TN.quarry[1] + 2, TN.quarry[2] + 1)],
     tarn: [B2T(30, -6, 20), B2T(62, 30, 8)],
     bridge: [B2T(BRIDGE.x + 9, BRIDGE.y - 17, BRIDGE.z + 4.5), B2T(BRIDGE.x - 2, BRIDGE.y, BRIDGE.z - 3)],
     peaks: [B2T(10, -20, 30), B2T(10, 90, 70)],
     tower: [B2T(tw.x - 1.2, tw.y - 1.5, tw.z + 10.9), B2T(-8, 2, 14)],
     inside: null,
+    hall: null,
   };
   status.textContent = 'Loading the buildings…';
   const variants = [...new Set(R.houses.map(h => h.variant))];
   const pines = [...new Set(R.pines.map(p => p.variant))];
-  const [houses, tower, props, ...pineModels] = await Promise.all([
+  const hallVars = [...new Set((R.halls || []).map(h => h.variant))];
+  const [houses, halls, kit, tower, props, ...pineModels] = await Promise.all([
     Promise.all(variants.map(v => gltf(`assets/house_${v}.json`))),
+    Promise.all(hallVars.map(v => gltf(`assets/hall_${v}.json`))),
+    gltf('assets/townkit.json'),
     gltf('assets/tower_windwatch.json'),
     gltf('assets/props.json'),
     ...pines.map(v => gltf(`assets/pine_${v}.json`)),
@@ -636,34 +703,48 @@ async function boot() {
   let tris = 0;
   const HV = {};
   variants.forEach((v, i) => { prepare(houses[i].scene); HV[v] = houses[i].scene; });
-  prepare(tower.scene); prepare(props.scene);
+  prepare(tower.scene); prepare(props.scene); prepare(kit.scene);
+  const HL = {};
+  hallVars.forEach((v, i) => { prepare(halls[i].scene); HL[v] = halls[i].scene; });
   const PV = {};
   pines.forEach((v, i) => { prepare(pineModels[i].scene); PV[v] = pineModels[i].scene; });
   const houseObjs = R.houses.map(h => place(HV[h.variant], h.x, h.y, h.z, h.rot));
-  // furniture: the shared household models at the marks each house variant was baked with
-  const FUR = T.furniture || {};
-  const furKinds = [...new Set(Object.values(FUR).flat().map(f => f.kind))];
+  const hallObjs = (R.halls || []).map(h => place(HL[h.variant], h.x, h.y, h.z, h.rot));
+  const BLD = T.buildings || {};
+  const placed = [...R.houses.map((h, i) => ['house_' + h.variant, houseObjs[i]]), ...(R.halls || []).map((h, i) => ['hall_' + h.variant, hallObjs[i]])];
+  // furniture: the shared household models at the marks each building was baked with
+  const furKinds = [...new Set(placed.flatMap(([n]) => ((BLD[n] || {}).furniture || []).map(f => f.kind)))];
   const furModels = await Promise.all(furKinds.map(k => gltf(`assets/fur_${k}.json`)));
   const FT = {};
   furKinds.forEach((k, i) => { prepareFurniture(furModels[i].scene); FT[k] = furModels[i].scene; });
   let nFur = 0;
-  R.houses.forEach((h, i) => {
-    for (const f of FUR[h.variant] || []) {
+  const smokeAt = [];
+  for (const [n, obj] of placed) {
+    obj.updateMatrixWorld(true);
+    for (const f of (BLD[n] || {}).furniture || []) {
       const o = FT[f.kind].clone(true);
       o.position.copy(B2T(f.x, f.y, f.z));
       o.rotation.set(0, f.rot, 0);
-      houseObjs[i].add(o);
+      obj.add(o);
       nFur++;
     }
-  });
-  place(tower.scene, tw.x, tw.y, tw.z, tw.rot);
+    const sm = (BLD[n] || {}).smoke;
+    if (sm) smokeAt.push(B2T(sm[0], sm[1], sm[2]).applyMatrix4(obj.matrixWorld));
+  }
+  buildSmoke(smokeAt);
+  for (const t of [tw, ...(R.towers || [])]) place(tower.scene, t.x, t.y, t.z, t.rot);
+  // the town kit
+  const ktm = {};
+  for (const [k, node] of Object.entries(TOWN_KINDS)) ktm[k] = template(kit.scene, node);
+  const townParts = [...R.props.filter(p => TOWN_KINDS[p.kind]), ...(R.town_stairs || [])];
+  for (const p of townParts) if (ktm[p.kind]) place(ktm[p.kind], p.x, p.y, p.z, p.rot, p.s || 1);
   R.pines.forEach(p => place(PV[p.variant], p.x, p.y, p.z, p.rot, p.s));
   // props: each kind is a node of the shared props model
   const propRoot = props.scene.children[0];
   const tmpl = {};
-  const kinds = new Set([...R.props.map(p => p.kind), ...R.stairs.map(p => p.kind), 'bridge']);
+  const kinds = new Set([...R.props.map(p => p.kind).filter(k => !TOWN_KINDS[k]), ...R.stairs.map(p => p.kind), 'bridge']);
   for (const k of kinds) tmpl[k] = template(props.scene, k === 'boulder0' ? propRoot.name : k);
-  for (const p of [...R.props, ...R.stairs]) if (tmpl[p.kind]) place(tmpl[p.kind], p.x, p.y, p.z, p.rot, p.s);
+  for (const p of [...R.props, ...R.stairs]) if (!TOWN_KINDS[p.kind] && tmpl[p.kind]) place(tmpl[p.kind], p.x, p.y, p.z, p.rot, p.s);
   place(tmpl.bridge, BRIDGE.x, BRIDGE.y, BRIDGE.z, Math.PI / 2);
   setLight(mode);
   // the inside view: stand in the first house, just in from the door, looking across to the hearth
@@ -673,7 +754,12 @@ async function boot() {
   const local = (x, y, z) => B2T(x, y, z).applyMatrix4(hroot.matrixWorld);
   const door = (R.houses[0] && T.doors && T.doors[R.houses[0].variant]) || [-0.9, -2.75, 0.32];
   views.inside = [local(door[0] + 0.2, door[1] + 1.3, door[2] + 1.65), local(door[0] + 3.6, door[1] + 3.0, door[2] + 1.1)];
-  document.getElementById('s-models').textContent = `${R.houses.length} houses, 1 tower, ${R.pines.length} pines, ${R.props.length + R.stairs.length + 1} props, ${nFur} furniture pieces, ${nGrass.toLocaleString('en-GB')} tufts`;
+  if (hallObjs.length) {
+    const hr = hallObjs[0], hd = (BLD['hall_' + R.halls[0].variant] || {}).door || [0, -3.6, 0.3];
+    const hl = (x, y, z) => B2T(x, y, z).applyMatrix4(hr.matrixWorld);
+    views.hall = [hl(hd[0] - 5.2, hd[1] + 1.1, hd[2] + 2.1), hl(hd[0] + 1.0, hd[1] + 3.6, hd[2] + 0.9)];
+  }
+  document.getElementById('s-models').textContent = `${R.houses.length} houses, ${hallObjs.length} hall, ${1 + (R.towers || []).length} towers, ${townParts.length} town pieces, ${R.pines.length} pines, ${R.props.length - townParts.length + (R.town_stairs || []).length + R.stairs.length + 1} props, ${nFur} furniture pieces, ${nGrass.toLocaleString('en-GB')} tufts`;
   status.textContent = 'Loading the walker…';
   const [g, hg] = await Promise.all([gltf('assets/body.json'), gltf('assets/hair.json')]);
   body = g.scene;
@@ -719,6 +805,7 @@ const press = (id, on) => document.getElementById(id).setAttribute('aria-pressed
 document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => goTo(b.dataset.view)));
 document.getElementById('b-follow').addEventListener('click', () => { follow = !follow; press('b-follow', follow); });
 document.getElementById('b-pause').addEventListener('click', e => { paused = !paused; press('b-pause', paused); e.currentTarget.textContent = paused ? 'Play' : 'Pause'; });
+document.getElementById('b-smoke').addEventListener('click', () => { if (smoke) { smoke.visible = !smoke.visible; press('b-smoke', smoke.visible); } });
 document.getElementById('b-grass').addEventListener('click', () => { if (grass) { grass.visible = !grass.visible; press('b-grass', grass.visible); } });
 let cut = false;
 document.getElementById('b-roofs').addEventListener('click', () => { cut = !cut; roofs.forEach(r => { r.visible = !cut; }); press('b-roofs', cut); });
