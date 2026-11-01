@@ -260,13 +260,13 @@ def hidden_faces(ob, gap=0.03, gap_down=0.09):
         c = f.calc_center_median()
         d = gap_down if n.z < -0.8 else gap
         loc, nn, idx, dist = tree.ray_cast(c + n * 0.0015, n, d)
-        if loc is not None:
+        if loc is not None and idx != f.index:
             # a second ray from a corner-ward point, so a face only half covered stays in the atlas
             ok = True
             for v in f.verts[:4]:
                 q = c.lerp(v.co, 0.7) + n * 0.0015
-                l2, _, _, _ = tree.ray_cast(q, n, d)
-                if l2 is None:
+                l2, _, i2, _ = tree.ray_cast(q, n, d)
+                if l2 is None or i2 == f.index:
                     ok = False
                     break
             hid[f.index] = ok

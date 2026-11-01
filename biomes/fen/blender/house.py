@@ -2,9 +2,10 @@
 
 The inside is built from the same pieces as the outside, so every opening matches: the door and windows are real holes
 through the full thickness of the wall, the smoke hole over the hearth is the open crown of the roof (with a raised cap
-on posts, seen from outside), and in the tall house the upper windows light the sleeping loft. Built-in furniture
-only, placed where the openings make sense: the bed away from the door draught, the fuel stack by the door, the table
-under a window, the hearth under the smoke hole.
+on posts, seen from outside), and in the tall house the upper windows light the sleeping loft. The furniture
+is the game's shared set, not modelled here: the builder only records where each piece stands (meta `furniture`),
+where the openings make sense: the bed away from the door draught, the fuel stack by the door, the table under a
+window, the hearth under the smoke hole. The page places and recolours them.
 
 Variants (seeded):  small  one room, one window          medium  two windows, table and stools, cooking tripod
                     tall   loft over the back half with a ladder, upper windows, the bed upstairs, a chest below
@@ -275,26 +276,24 @@ def build(variant='medium', seed='fen'):
             a = 2 * math.pi * i / 3 + 0.5
             cyl(R, f'tripod:{i}', 'timber', Vector((hx, hy, ZD)) + P(1.0, a, 0), top + P(0.05, a, 0.1), 0.035, 0.03, segs=6, e=0.006)
         cyl(R, 'chain', 'iron', top, Vector((hx, hy, ZD + 0.88)), 0.012, segs=5)
-        lathe(R, 'pot', 'iron', [(0.0001, ZD + 0.52), (0.14, ZD + 0.54), (0.2, ZD + 0.64), (0.2, ZD + 0.78), (0.17, ZD + 0.86), (0.18, ZD + 0.88)],
-              16, M=Matrix.Translation((hx, hy, 0)), close_top=True)
-        lathe(R, 'pot_bail', 'iron', [(0.17, ZD + 0.9), (0.2, ZD + 0.9)], 16, M=Matrix.Translation((hx, hy, 0)), close_top=False, close_bottom=False)
-    # bed: plank bench on posts with a fleece and a rolled woad blanket; on the loft in the tall house
-    def bed(cx, cy, cz, ang):
-        M0 = Matrix.Translation((cx, cy, cz)) @ Matrix.Rotation(ang, 4, 'Z')
-        for sx in (-0.88, 0.88):
-            for sy in (-0.34, 0.34):
-                p = M0 @ Vector((sx, sy, 0))
-                box(R, f'bed_leg:{sx}:{sy}', 'wood', Matrix.Translation((p.x, p.y, cz + 0.2)), (0.09, 0.09, 0.4), e=0.012, g=(0, 0, 1))
-        for sy in (-0.36, 0.36):
-            box(R, f'bed_rail:{sy}', 'wood', M0 @ Matrix.Translation((0, sy, 0.33)), (1.9, 0.08, 0.12), e=0.012)
-        for k in range(6):
-            box(R, f'bed_plank:{k}', 'wood', M0 @ Matrix.Translation((-0.8 + k * 0.32, 0, 0.415)), (0.3, 0.8, 0.04), e=0.008, g=(0, 1, 0))
-        box(R, 'fleece', 'fleece', M0 @ Matrix.Translation((0, 0, 0.49)), (1.86, 0.76, 0.11), e=0.045)
-        pr = M0 @ Vector((0.72, 0, 0.6))
-        pr2 = M0 @ Vector((0.72, 0, 0.6)) + (M0.to_3x3() @ Vector((0, 0.34, 0)))
-        pr1 = M0 @ Vector((0.72, 0, 0.6)) - (M0.to_3x3() @ Vector((0, 0.34, 0)))
-        cyl(R, 'blanket', 'cloth', pr1, pr2, 0.12, segs=12, e=0.02)
+    # Furniture and furnishings are the shared set (props thread), placed by the page and recoloured for the fen there.
+    # Only what belongs to the building is modelled here: hearth, tripod, loft and ladder, the peat fuel stack.
+    furniture = []
 
+    def put(name, pos, front):
+        furniture.append(dict(name=name, pos=[round(float(v), 4) for v in pos], front=[round(float(front[0]), 4), round(float(front[1]), 4)]))
+
+    def wall(name, adeg, depth, z=ZD, width=0.0):
+        a = math.radians(adeg)
+        sag = Rw - math.sqrt(max(0.0, Rw ** 2 - (width / 2) ** 2))
+        r = Rw - 0.05 - depth / 2 - sag
+        put(name, (r * math.cos(a), r * math.sin(a), z), (-math.cos(a), -math.sin(a)))
+        return a, r
+
+    if V['tripod']:
+        put('cauldron', (hx, hy, ZD + 0.46), (0, -1))
+    else:
+        put('kettle', (hx + 0.26, hy - 0.08, ZD + 0.13), (-1, 0.3))
     if V['loft']:
         zl = ZD + 2.22
         y0 = 0.72
@@ -325,7 +324,10 @@ def build(variant='medium', seed='fen'):
             yy = -0.15 + (y0 - 0.05 + 0.15) * t
             zz = ZD + (zl + 0.75 - ZD) * t
             cyl(R, f'rung:{i}', 'wood', (0.95 - 0.27, yy, zz), (0.95 + 0.27, yy, zz), 0.022, segs=6)
-        bed(0.0, Rw - 0.85, zl + 0.04, 0.0)
+        put('bed', (0.0, Rw - 1.0, zl + 0.045), (1, 0))
+        put('hanging_herbs', (-1.4, y0 + 0.62, zl - 0.17), (0, -1))
+        put('hanging_herbs', (1.7, y0 + 1.24, zl - 0.17), (0.3, -1))
+        put('hanging_herbs', (-0.4, y0 + 1.86, zl - 0.17), (-0.2, -1))
         # a low post rail along the loft edge
         for i, xx in enumerate((-2.2, -1.1, 0.35, 2.2)):
             yy = y0 + 0.04
@@ -337,15 +339,12 @@ def build(variant='medium', seed='fen'):
         beam(R, 'loft_rail_r', 'wood', (1.45, y0 + 0.04, zl + 0.88), (hx2, y0 + 0.04, zl + 0.88), 0.07, 0.07, e=0.01)
     else:
         a = math.radians(92)
-        rb = Rw - 0.5
-        bed(rb * math.cos(a), rb * math.sin(a), ZD, a - math.pi / 2)
-    # shelf on brackets on the wall left of the door (away from windows)
-    sa = math.radians(205)
-    sp = P(Rw - 0.16, sa, ZD + 1.42)
-    Ms = Matrix.Translation(sp) @ Matrix.Rotation(sa + math.pi / 2, 4, 'Z')
-    box(R, 'shelf', 'wood', Ms, (1.15, 0.3, 0.045), e=0.008)
-    for sx in (-0.42, 0.42):
-        box(R, f'shelf_bracket:{sx}', 'wood', Ms @ Matrix.Translation((sx, 0.02, -0.12)), (0.05, 0.26, 0.2), e=0.006, g=(0, 0, 1))
+        # the bed's long side to the wall: the corners of a 2 m bed must clear the curve
+        rb = math.sqrt((Rw - 0.07) ** 2 - 1.005 ** 2) - 0.475
+        put('bed', (rb * math.cos(a), rb * math.sin(a), ZD), (-math.sin(a), math.cos(a)))
+    wall('shelf', 205, 0.366, width=0.93)
+    put('jug', P(Rw - 0.32, math.radians(205) + 0.12, ZD + 0.9), (0, 1))
+    put('plate_stack', P(Rw - 0.32, math.radians(205) - 0.15, ZD + 1.3), (0, 1))
     # fuel: a neat stack of dry peats just inside the door, on the side the door does not swing to
     fa = door_a + math.radians(38)
     for row in range(3):
@@ -357,30 +356,22 @@ def build(variant='medium', seed='fen'):
     if V['table']:
         ta = math.radians(V['windows'][0][0])
         tc = P(Rw - 0.85, ta, ZD)
-        Mt = Matrix.Translation(tc) @ Matrix.Rotation(ta + math.pi / 2, 4, 'Z')
-        for k in range(4):
-            box(R, f'table_top:{k}', 'wood', Mt @ Matrix.Translation((-0.45 + k * 0.3, 0, 0.75)), (0.29, 0.7, 0.05), e=0.008, g=(0, 1, 0))
-        for sx in (-0.5, 0.5):
-            for sy in (-0.27, 0.27):
-                box(R, f'table_leg:{sx}:{sy}', 'wood', Mt @ Matrix.Translation((sx, sy, 0.36)), (0.07, 0.07, 0.72), e=0.01, g=(0, 0, 1))
-            box(R, f'table_stretch:{sx}', 'wood', Mt @ Matrix.Translation((sx, 0, 0.18)), (0.05, 0.52, 0.06), e=0.006, g=(0, 1, 0))
-        for i, sx in enumerate((-0.35, 0.4)):
-            sc = Mt @ Vector((sx, -0.62, 0))
-            lathe(R, f'stool:{i}', 'wood', [(0.0001, 0.42), (0.17, 0.42), (0.17, 0.47), (0.0001, 0.47)], 14,
-                  M=Matrix.Translation((sc.x, sc.y, ZD)), close_top=False)
-            for j in range(3):
-                a = 2 * math.pi * j / 3 + i
-                cyl(R, f'stool_leg:{i}:{j}', 'wood', Vector((sc.x, sc.y, ZD)) + P(0.16, a, 0), Vector((sc.x, sc.y, ZD)) + P(0.09, a, 0.43), 0.022, segs=6)
+        inward = Vector((-math.cos(ta), -math.sin(ta), 0))
+        tang = Vector((-math.sin(ta), math.cos(ta), 0))
+        put('table', tc, inward)
+        put('pewter_plate', tc + tang * 0.3 + inward * 0.12 + Vector((0, 0, 0.76)), inward)
+        put('jug', tc - tang * 0.35 + Vector((0, 0, 0.76)), inward)
+        for sx in (-0.35, 0.4):
+            put('stool', tc + inward * 0.62 + tang * sx, inward)
     if V['chest']:
-        ca = math.radians(140)
-        cc = P(Rw - 0.42, ca, ZD)
-        Mc = Matrix.Translation(cc) @ Matrix.Rotation(ca + math.pi / 2, 4, 'Z')
-        for k in range(3):
-            box(R, f'chest_side:{k}', 'wood', Mc @ Matrix.Translation((0, -0.2 + k * 0.2, 0.25)), (0.95, 0.19, 0.42), e=0.01)
-        for k in range(3):
-            box(R, f'chest_lid:{k}', 'wood', Mc @ Matrix.Translation((0, -0.2 + k * 0.2, 0.5)), (1.0, 0.195, 0.06), e=0.01)
-        for sx in (-0.32, 0.32):
-            box(R, f'chest_band:{sx}', 'iron', Mc @ Matrix.Translation((sx, 0, 0.3)), (0.06, 0.64, 0.5), e=0.004, g=(0, 1, 0))
+        wall('chest', 140, 0.524, width=0.84)
+        wall('drawers', 230, 0.51, width=0.93)
+        put('rug_round', P(2.15, math.radians(92), ZD + 0.002), (0, 1))
+    elif V['table']:
+        wall('cupboard', 238, 0.5, width=1.0)
+    else:
+        put('stool', P(1.35, math.radians(20), ZD), (-1, 0))
+        wall('firewood_stack', 160, 0.5, width=0.6)
     # lantern post by the door, outside, so the threshold is lit at night
     lp = P(Ro + 0.55, door_a + 0.42, 0)
     cyl(R, 'lpost', 'timber', (lp.x, lp.y, ZD - 0.05), (lp.x, lp.y, ZD + 2.3), 0.065, 0.055, segs=8, e=0.01)
@@ -396,6 +387,6 @@ def build(variant='medium', seed='fen'):
     cyl(R, 'lhang', 'rope', lc + Vector((0, 0, 0.25)), (lp.x + 0.4, lp.y - 0.05, ZD + 2.17), 0.01, segs=4)
     meta = dict(variant=variant, Rw=Rw, Ro=Ro, Rd=Rd, deck=ZD, wall=Hw, apex=zc + 0.5, door=[0, -Rd - 0.65, ZD - 0.06],
                 hearth=[hx, hy, ZD + 0.4], lantern=list(lc), loft=(ZD + 2.22) if V['loft'] else None,
-                windows=[[o['a'], o['z0'], o['z1']] for o in openings if o['kind'] == 'window'])
+                windows=[[o['a'], o['z0'], o['z1']] for o in openings if o['kind'] == 'window'], furniture=furniture)
     meta['views'] = [((0.3, -Rw + 0.5, ZD + 1.6), (0.2, Rw, ZD + 1.0)), ((-0.6, Rw - 0.7, ZD + (3.0 if V['loft'] else 1.5)), (0.3, -Rw, ZD + 0.8))]
     return R, meta, hearth_light

@@ -17,12 +17,16 @@ no stilt shacks, no frogfolk. The palette is its own (`blender/painter.py`, `PAL
   from above, ordered dither through palette ramps. Atlases save as indexed PNGs.
 - `blender/house.py` the round houses (small, medium, tall with a loft). Interiors are built from the same pieces as
   the outside: the door and windows are real openings through the wall, the smoke hole is the open crown of the roof,
-  the tall house's upper windows light its loft.
+  the tall house's upper windows light its loft. The houses model only what belongs to the building (hearth, tripod,
+  loft and ladder, the peat fuel stack). The furniture is the game's shared set (beds, tables, stools, shelves,
+  cupboards, chests, cook pots), never remodelled: the house builder writes where each piece stands, and the page
+  recolours each piece's atlas into the fen's ramps (`fenRemap` in `page/index.html`).
 - `blender/flora.py` tallow trees (swept tubes plus alpha-cut needle cards), snags, lilies, pitchers, sundew hummocks,
   sedge tussocks, boulders.
 - `blender/props.py` boardwalk, lantern post, dugout, peat bank with drying footings, eel trap.
 - `blender/build.py` builds, bakes, paints and exports. `page/index.html` is the explorable page (three.js); its
-  `assets/` folder takes the glbs plus the walker's `body.json` and `hair.json`.
+  `assets/` folder takes the glbs, the walker's `body.json` and `hair.json`, `houses.json` (each variant's `furniture`
+  list from the build's `house_*.json`) and the shared furniture glbs in `assets/furn/`.
 
 ## Build
 

@@ -149,14 +149,14 @@ def tallow(seed, variant):
                 return pts[i].lerp(pts[i + 1], f), rad[i] + (rad[i + 1] - rad[i]) * f
         return pts[-1], rad[-1]
     cards = []
-    tiers = {'a': 5, 'b': 4, 'c': 6}[variant]
-    z_lo, z_hi = H * 0.56, H * 0.95
+    tiers = {'a': 7, 'b': 6, 'c': 8}[variant]
+    z_lo, z_hi = H * 0.46, H * 0.95
     li = 0
     for k in range(tiers):
         f = k / max(1, tiers - 1)
         z = z_lo + (z_hi - z_lo) * f
         reach = (3.9 - 2.6 * f) * rng.uniform(0.85, 1.1) * (H / 11.5)
-        nl = 4 if k < tiers - 1 else 3
+        nl = 5 if k < tiers - 2 else 4
         a0 = rng.uniform(0, 2 * math.pi)
         for j in range(nl):
             a = a0 + 2 * math.pi * j / nl + rng.uniform(-0.35, 0.35)
@@ -173,20 +173,20 @@ def tallow(seed, variant):
             lp[0] = base + Vector((math.cos(a), math.sin(a), 0)) * rb * 0.3
             tube(R, f'limb:{li}', 'bark', lp, lr, segs=8)
             # a flat pad of needle sprays on the outer half of every limb: the tiers read as layers with sky between
-            for s in range(3, m):
+            for s in range(2, m):
                 q = lp[s]
                 for side in (-1, 1):
-                    if rng.random() < 0.45:
+                    if rng.random() < 0.85:
                         ta = a + side * rng.uniform(0.7, 1.2)
                         tl = rng.uniform(0.5, 0.9) * (1 - 0.3 * f)
                         tp = [q, q + Vector((math.cos(ta), math.sin(ta), 0.05)) * tl * 0.5, q + Vector((math.cos(ta), math.sin(ta), 0.08)) * tl]
                         tube(R, f'twig:{li}:{s}:{side}', 'bark', tp, [lr[s] * 0.55, lr[s] * 0.4, 0.014], segs=5)
-                        cards.append((tp[-1], Vector((rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), 1)), rng.uniform(0.85, 1.15), ta - math.pi / 2, 0, 0))
+                        cards.append((tp[-1], Vector((rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), 1)), rng.uniform(1.1, 1.45), ta - math.pi / 2, 0, 0))
                 cards.append((q + Vector((rng.uniform(-0.15, 0.15), rng.uniform(-0.15, 0.15), 0.03)),
-                              Vector((rng.uniform(-0.22, 0.22), rng.uniform(-0.22, 0.22), 1)), rng.uniform(1.0, 1.3), a - math.pi / 2 + rng.uniform(-0.5, 0.5), 0, 0))
+                              Vector((rng.uniform(-0.22, 0.22), rng.uniform(-0.22, 0.22), 1)), rng.uniform(1.3, 1.7), a - math.pi / 2 + rng.uniform(-0.5, 0.5), 0, 0))
             li += 1
     # a crown tuft at the leader
-    for c in range(4):
+    for c in range(7):
         cards.append((pts[-1] + Vector((rng.uniform(-0.2, 0.2), rng.uniform(-0.2, 0.2), rng.uniform(-0.3, 0.05))),
                       Vector((rng.uniform(-0.4, 0.4), rng.uniform(-0.4, 0.4), 1)), rng.uniform(0.8, 1.1), rng.uniform(0, 6.28), 0, 0))
     # row from height in the crown and from facing: top lit, under-tiers shaded
@@ -261,7 +261,7 @@ def lilies(seed):
             continue
         placed.append((c, r))
         rim = 0.08 + r * 0.05
-        prof = [(0.03, 0.012), (0.55 * r, 0.01), (0.9 * r, 0.018), (r, rim), (r - 0.022, rim), (0.88 * r, 0.004), (0.5 * r, -0.008), (0.03, -0.012)]
+        prof = [(0.03, -0.012), (0.55 * r, -0.01), (0.9 * r, -0.004), (r, rim), (r - 0.022, rim), (0.88 * r, 0.012), (0.5 * r, 0.01), (0.03, 0.012)]
         notch = rng.uniform(0, 6.28)
         M = Matrix.Translation(c) @ Matrix.Rotation(notch, 4, 'Z') @ Matrix.Rotation(rng.uniform(-0.02, 0.02), 4, 'X')
         revolve_partial(R, f'pad:{k}', 'pad', prof, math.radians(9), math.radians(351), 40, M)
