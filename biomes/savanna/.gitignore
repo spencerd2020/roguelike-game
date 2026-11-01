@@ -1,0 +1,6 @@
+page/kit/
+page/assets/
+tools/vendor/
+__pycache__/
+*.glb
+*.png
